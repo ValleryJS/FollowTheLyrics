@@ -19,6 +19,19 @@ def test_text_scaling_invalid_saved_value_is_disabled(config_path):
     assert settings.text_scaling_enabled(settings.load_config()) is False
 
 
+def test_word_shake_defaults_off_and_persists(config_path):
+    assert settings.load_config()['word_shake'] is False
+    cfg = settings.load_config()
+    cfg['word_shake'] = True
+    settings.save_config(cfg)
+    assert settings.load_config()['word_shake'] is True
+
+
+def test_word_shake_rejects_nonboolean_config(config_path):
+    config_path.write_text(json.dumps({'word_shake': 'false'}), encoding='utf-8')
+    assert settings.load_config()['word_shake'] is False
+
+
 def test_write_json_replaces_the_file_atomically(tmp_path):
     target = tmp_path / "config.json"
     target.write_text('{"old": true}', encoding="utf-8")

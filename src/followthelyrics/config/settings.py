@@ -124,6 +124,7 @@ DEFAULTS: dict[str, Any] = {
     "beat": True,
     "text_glow": False,
     "text_scaling": False,
+    "word_shake": False,
     "card": True,
     "particles": True,
     "tilt": True,
@@ -179,6 +180,8 @@ def load_config():
         cfg["text_glow"] = DEFAULTS["text_glow"]
     if not isinstance(cfg.get("text_scaling"), bool):
         cfg["text_scaling"] = DEFAULTS["text_scaling"]
+    if not isinstance(cfg.get("word_shake"), bool):
+        cfg["word_shake"] = DEFAULTS["word_shake"]
     if not isinstance(cfg.get("screen"), str):
         cfg["screen"] = ""
     for old in ("theme",):

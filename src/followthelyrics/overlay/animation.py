@@ -18,7 +18,7 @@ def lerp(a, b, k):
     return a + (b - a) * k
 
 
-def held_fx(meta, pos):
+def held_fx(meta, pos, shake=True):
     none = (1.0, 0.0, 0.0, 0.0, 1.0)
     if not meta:
         return none
@@ -28,9 +28,9 @@ def held_fx(meta, pos):
     amp = 0.10 + 0.24 * inten
     if pos <= end:
         k = ease_out(clamp((pos - start) / max(0.25, end - start)))
-        shake = (0.8 + 2.8 * inten) * k if (end - start) > 0.8 else 0.0
-        dx = shake * math.sin(pos * 61 + start * 13)
-        dy = shake * math.sin(pos * 47 + start * 7 + 1.3)
+        amount = (0.8 + 2.8 * inten) * k if shake and (end - start) > 0.8 else 0.0
+        dx = amount * math.sin(pos * 61 + start * 13)
+        dy = amount * math.sin(pos * 47 + start * 7 + 1.3)
         return 1 + amp * k, dx, dy, k, 1 + 0.07 * inten * k
     after = pos - end
     if after > 0.5:

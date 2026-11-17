@@ -1377,7 +1377,10 @@ class Overlay(QWidget):
                         word_i += 1
                         continue
                     sc, dx, dy, glow_k, sx = (
-                        animation.held_fx(meta.get(cstart), pos)
+                        animation.held_fx(
+                            meta.get(cstart), pos,
+                            shake=self.cfg.get("word_shake") is True,
+                        )
                         if timed
                         else (1, 0, 0, 0, 1)
                     )

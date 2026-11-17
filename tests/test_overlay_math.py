@@ -25,6 +25,16 @@ def test_held_fx_is_neutral_outside_the_word():
     assert animation.held_fx((2.0, 3.0, 1.0), 2.5)[0] > 1.0
 
 
+def test_held_word_shake_can_be_disabled_without_disabling_emphasis():
+    meta = (2.0, 4.0, 1.0)
+    shaken = animation.held_fx(meta, 3.0, shake=True)
+    steady = animation.held_fx(meta, 3.0, shake=False)
+    assert shaken[1:3] != (0.0, 0.0)
+    assert steady[1:3] == (0.0, 0.0)
+    assert steady[0] == shaken[0]
+    assert steady[3:] == shaken[3:]
+
+
 @pytest.mark.parametrize(
     "rgb", [(255, 255, 255), (0, 0, 0), (200, 30, 30), (20, 120, 220)]
 )

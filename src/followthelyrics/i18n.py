@@ -33,6 +33,14 @@ def tr(text: str) -> str:
 
 
 TEXTS: dict[str, tuple[str, str, str]] = {
+    "Tremblement des mots": (
+        "Word shake", "Temblor de palabras", "文字抖动",
+    ),
+    "Fait trembler les mots pendant les notes tenues.": (
+        "Shakes words during sustained notes.",
+        "Hace temblar las palabras durante notas sostenidas.",
+        "在延长音时抖动文字。",
+    ),
     "Redimensionnement du texte": (
         "Text scaling", "Escalado del texto", "文字缩放",
     ),

@@ -732,6 +732,12 @@ class Panel(QWidget):
             self.opt["text_scaling"],
             i18n.tr("Agrandit les mots sur le beat et les notes tenues."),
         )
+        self.opt["word_shake"] = widgets.Toggle()
+        glow.add_row(
+            i18n.tr("Tremblement des mots"),
+            self.opt["word_shake"],
+            i18n.tr("Fait trembler les mots pendant les notes tenues."),
+        )
 
         motion = Card(i18n.tr("Animation"))
         self.style_picker = widgets.Segmented(translated(settings.STYLES))
