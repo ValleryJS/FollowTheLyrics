@@ -33,6 +33,14 @@ def tr(text: str) -> str:
 
 
 TEXTS: dict[str, tuple[str, str, str]] = {
+    "Redimensionnement du texte": (
+        "Text scaling", "Escalado del texto", "文字缩放",
+    ),
+    "Agrandit les mots sur le beat et les notes tenues.": (
+        "Enlarges words on beats and sustained notes.",
+        "Amplía las palabras con el ritmo y las notas sostenidas.",
+        "在节拍与延长音时放大文字。",
+    ),
     "Effets du texte": ("Text effects", "Efectos de texto", "文字效果"),
     "Halo autour du texte": ("Text glow", "Brillo del texto", "文字光晕"),
     "Ajoute une lueur douce autour des paroles.": (

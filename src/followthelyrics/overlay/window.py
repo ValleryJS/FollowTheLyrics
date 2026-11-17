@@ -467,7 +467,9 @@ class Overlay(QWidget):
         return self.cfg.get("mode") in ("classic", "typewriter")
 
     def stacked(self):
-        return self.cfg.get("mode") == "edit" and self.cfg.get("stack", True)
+        return (settings.text_scaling_enabled(self.cfg)
+                and self.cfg.get("mode") == "edit"
+                and self.cfg.get("stack", True))
 
     def word_score(self, line, word, cstart, index):
         key = analysis.word_key(word)
@@ -522,6 +524,8 @@ class Overlay(QWidget):
                     mul *= 1.22
                 if attempt >= 100:
                     mul *= 0.78 if attempt < 150 else 0.62
+                if not settings.text_scaling_enabled(self.cfg):
+                    mul = 1.0
                 if self.stacked():
                     mul *= 1.45
                     maxw = rng.choice([0.11, 0.14, 0.18, 0.22]) * width / mul
@@ -633,7 +637,7 @@ class Overlay(QWidget):
         band = self.column_band()
         pos = self.cfg.get("position", "left")
         chorus = line.chorus
-        mul = 1.12 if (chorus and self.cfg.get("mode") == "classic") else 1.0
+        mul = (1.12 if (chorus and self.cfg.get("mode") == "classic") else 1.0) if settings.text_scaling_enabled(self.cfg) else 1.0
         ax = {"left": band.left(), "right": band.right()}.get(
             pos, band.center().x()
         )
@@ -762,7 +766,7 @@ class Overlay(QWidget):
             animation.lerp(1.4, 1.0, animation.ease_out_back(k))
             * (1 + 0.05 * self.beat_pulse())
             * (1 + 0.05 * (1 - out))
-        )
+        ) if settings.text_scaling_enabled(self.cfg) else 1.0
         font = f["font"]
         fm = QFontMetricsF(font)
         tw = fm.horizontalAdvance(f["text"])
@@ -996,6 +1000,8 @@ class Overlay(QWidget):
         )
 
     def beat_scale(self, chorus):
+        if not settings.text_scaling_enabled(self.cfg):
+            return 1.0
         return 1 + (0.09 if chorus else 0.05) * self.beat_pulse()
 
     def draw_current(self, p, e, now, pos):
@@ -1016,7 +1022,7 @@ class Overlay(QWidget):
         elif pl.enter == "pop":
             sc = animation.lerp(
                 1.7 if pl.chorus else 1.4, 1.0, animation.ease_out_back(k)
-            )
+            ) if settings.text_scaling_enabled(self.cfg) else 1.0
         else:
             oy = -60 * self.cfg["scale"] * (1 - animation.ease_out_back(k))
         sc *= self.beat_scale(pl.chorus)
@@ -1384,6 +1390,8 @@ class Overlay(QWidget):
                         glow *= 1.25
                     cxw, cyw = x + ww / 2, base_y - ascent * 0.35
                     p.save()
+                    if not settings.text_scaling_enabled(self.cfg):
+                        sc = sx = 1.0
                     if sc != 1 or dx or dy or sx != 1:
                         p.translate(cxw + dx, cyw + dy)
                         p.scale(sc * sx, sc)
@@ -1411,6 +1419,8 @@ class Overlay(QWidget):
                         rot0 = ((cstart * 37) % 25) - 12
                         p.translate(cxw, cyw)
                         p.rotate(rot0 * (1 - e))
+                        # Kinetic entrance scaling is intrinsic to this style,
+                        # independent of the optional emphasis scaling.
                         p.scale(
                             animation.lerp(1.45, 1.0, e),
                             animation.lerp(1.45, 1.0, e),

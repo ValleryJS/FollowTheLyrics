@@ -123,6 +123,7 @@ DEFAULTS: dict[str, Any] = {
     "liriqo": True,
     "beat": True,
     "text_glow": False,
+    "text_scaling": False,
     "card": True,
     "particles": True,
     "tilt": True,
@@ -176,11 +177,17 @@ def load_config():
         cfg["custom_color"] = custom.upper()
     if not isinstance(cfg.get("text_glow"), bool):
         cfg["text_glow"] = DEFAULTS["text_glow"]
+    if not isinstance(cfg.get("text_scaling"), bool):
+        cfg["text_scaling"] = DEFAULTS["text_scaling"]
     if not isinstance(cfg.get("screen"), str):
         cfg["screen"] = ""
     for old in ("theme",):
         cfg.pop(old, None)
     return cfg
+
+
+def text_scaling_enabled(cfg):
+    return cfg.get("text_scaling") is True
 
 
 def write_json(path, data, indent=2):

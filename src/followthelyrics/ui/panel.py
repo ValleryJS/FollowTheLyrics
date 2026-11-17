@@ -726,6 +726,12 @@ class Panel(QWidget):
             self.opt["text_glow"],
             i18n.tr("Ajoute une lueur douce autour des paroles."),
         )
+        self.opt["text_scaling"] = widgets.Toggle()
+        glow.add_row(
+            i18n.tr("Redimensionnement du texte"),
+            self.opt["text_scaling"],
+            i18n.tr("Agrandit les mots sur le beat et les notes tenues."),
+        )
 
         motion = Card(i18n.tr("Animation"))
         self.style_picker = widgets.Segmented(translated(settings.STYLES))

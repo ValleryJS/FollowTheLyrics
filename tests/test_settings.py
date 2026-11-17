@@ -6,6 +6,19 @@ import pytest
 from followthelyrics.config import settings
 
 
+def test_text_scaling_defaults_off_and_can_be_enabled(config_path):
+    cfg = settings.load_config()
+    assert settings.text_scaling_enabled(cfg) is False
+    cfg['text_scaling'] = True
+    settings.save_config(cfg)
+    assert settings.text_scaling_enabled(settings.load_config()) is True
+
+
+def test_text_scaling_invalid_saved_value_is_disabled(config_path):
+    config_path.write_text(json.dumps({'text_scaling': 'false'}), encoding='utf-8')
+    assert settings.text_scaling_enabled(settings.load_config()) is False
+
+
 def test_write_json_replaces_the_file_atomically(tmp_path):
     target = tmp_path / "config.json"
     target.write_text('{"old": true}', encoding="utf-8")
