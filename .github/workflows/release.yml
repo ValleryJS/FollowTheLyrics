@@ -58,8 +58,8 @@ jobs:
           from followthelyrics import version
           from followthelyrics.system import updater
           new, cur = os.environ["VERSION"], version.current()
-          if not updater.is_newer(new, cur):
-              print(f"::error::{new} n'est pas plus recente que {cur}")
+          if updater.is_newer(cur, new):
+              print(f"::error::{new} est plus ancienne que {cur}")
               sys.exit(1)
           PY
 
@@ -128,7 +128,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/followthelyrics/VERSION
-          git commit -m "Version $VERSION"
+          git diff --cached --quiet || git commit -m "Version $VERSION"
           git tag "v$VERSION"
           git push --atomic origin HEAD:main "v$VERSION"
       - name: Creer la release

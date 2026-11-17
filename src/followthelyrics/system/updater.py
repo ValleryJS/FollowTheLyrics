@@ -173,6 +173,9 @@ try {
         }
     }
     if (-not $complete) { throw 'Cannot replace the application executable' }
+    # Restart as a new PyInstaller onefile process, never as a worker that
+    # reuses the previous process's deleted _MEI extraction directory.
+    $env:PYINSTALLER_RESET_ENVIRONMENT = '1'
     Start-Process -FilePath $TargetExe -ArgumentList @('--updated', $InstalledVersion) -WorkingDirectory (Split-Path -Parent $TargetExe)
     # Keep backup for the application to remove on its next startup.
 } catch {

@@ -9,6 +9,21 @@ from followthelyrics.desktop import ports
 from followthelyrics.system import updater
 
 
+def test_windows_helper_restarts_with_fresh_pyinstaller_environment():
+    helper = updater.WINDOWS_HELPER
+    restart = helper.index('Start-Process -FilePath $TargetExe')
+    reset = helper.index("$env:PYINSTALLER_RESET_ENVIRONMENT = '1'")
+    assert reset < restart
+
+
+def test_release_workflow_can_publish_packaged_version():
+    from pathlib import Path
+
+    workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/release.yml').read_text()
+    assert 'if updater.is_newer(cur, new):' in workflow
+    assert 'git diff --cached --quiet || git commit' in workflow
+
+
 @pytest.mark.parametrize(
     ("text", "parsed"),
     [
