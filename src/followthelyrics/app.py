@@ -235,7 +235,14 @@ class App:
 
     def on_update_installed(self, version):
         try:
-            updater.relaunch(self.desktop.session, sys.executable, version)
+            if sys.platform == "win32":
+                updater.apply_windows_update(
+                    sys.executable, sys.executable + ".new", version
+                )
+                self.quit()
+            else:
+                updater.relaunch(self.desktop.session, sys.executable, version
+                )
         except Exception as e:
             logger.warning("on_update_installed failed", exc_info=True)
             self.panel.update_failed(

@@ -33,6 +33,13 @@ def tr(text: str) -> str:
 
 
 TEXTS: dict[str, tuple[str, str, str]] = {
+    "Effets du texte": ("Text effects", "Efectos de texto", "文字效果"),
+    "Halo autour du texte": ("Text glow", "Brillo del texto", "文字光晕"),
+    "Ajoute une lueur douce autour des paroles.": (
+        "Adds a soft glow around the lyrics.",
+        "Añade un brillo suave alrededor de la letra.",
+        "为歌词添加柔和光晕。",
+    ),
     "Accueil": (
         "Home",
         "Inicio",
@@ -347,6 +354,24 @@ TEXTS: dict[str, tuple[str, str, str]] = {
         "Text colours",
         "Colores del texto",
         "文字颜色",
+    ),
+    "Couleur personnalisée": ("Custom colour", "Color personalizado", "自定义颜色"),
+    "Une couleur fixe, indépendante de la pochette.": (
+        "A fixed colour, independent of album art.",
+        "Un color fijo, independiente de la portada.",
+        "固定颜色，不随专辑封面变化。",
+    ),
+    "Choisir une couleur…": ("Choose a colour…", "Elegir un color…", "选择颜色…"),
+    "Choisir une couleur": ("Choose a colour", "Elegir un color", "选择颜色"),
+    "Choisissez la couleur utilisée en mode Personnalisé.": (
+        "Choose the colour used in Custom mode.",
+        "Elige el color utilizado en el modo personalizado.",
+        "选择自定义模式使用的颜色。",
+    ),
+    "Couleurs de l'album / blanc / personnalisé": (
+        "Album colours / white / custom",
+        "Colores del álbum / blanco / personalizado",
+        "专辑配色 / 白色 / 自定义",
     ),
     "Couleurs de l'album": (
         "Album colours",

@@ -330,13 +330,16 @@ class Overlay(QWidget):
         return ""
 
     def colors(self):
+        if self.cfg.get("color") == "custom":
+            c = QColor(self.cfg.get("custom_color", "#FFB86C"))
+            return [c, QColor(c), QColor(c)]
         if self.cfg.get("color") == "white":
             return [QColor(c) for c in effects.WHITE_PALETTE]
         return self.accent
 
     def fill_brush(self, x0, roww, chorus):
         cols = self.colors()
-        if self.cfg.get("color") == "white":
+        if self.cfg.get("color") in ("white", "custom"):
             return QBrush(cols[0])
         g = QLinearGradient(QPointF(x0, 0), QPointF(x0 + max(roww, 1), 0))
         white = QColor(255, 255, 255)
@@ -359,7 +362,7 @@ class Overlay(QWidget):
         if self.cfg.get("color") == "white":
             c, base = QColor(255, 255, 255), 55
         else:
-            c, base = self.accent[1], 65
+            c, base = self.colors()[1], 65
         pen = QPen(
             QColor(
                 c.red(),
@@ -1133,6 +1136,8 @@ class Overlay(QWidget):
     def glow_color(self):
         if self.cfg.get("color") == "white":
             return QColor(236, 244, 255)
+        if self.cfg.get("color") == "custom":
+            return QColor(self.colors()[0])
         c = self.accent[0]
         h, s = c.hsvHueF(), c.hsvSaturationF()
         if s < 0.10:
@@ -1214,6 +1219,10 @@ class Overlay(QWidget):
     ):
         px = min(font.pixelSize(), 110)
         white = self.cfg.get("color") == "white"
+        # Disabling text glow removes both the coloured halo and the blurred
+        # drop shadow, leaving the original solid text unchanged.
+        if not self.cfg.get("text_glow", False):
+            glow = shadow = 0
         if shadow > 0:
             self.blit_halo(
                 p,
@@ -1332,6 +1341,7 @@ class Overlay(QWidget):
             word_i = 0
             lit = []
             white = self.cfg.get("color") == "white"
+            custom = self.cfg.get("color") == "custom"
             row_top = 0.0
             for r, (row, roww) in enumerate(rows):
                 x0 = {"left": 0, "right": -roww}.get(align, -roww / 2)
@@ -1342,7 +1352,7 @@ class Overlay(QWidget):
                 base_y = ascent
                 plain = stack and r != hero
                 brush = (
-                    QBrush(QColor(255, 255, 255, 215 if white else 245))
+                    QBrush(self.colors()[0] if custom else QColor(255, 255, 255, 215 if white else 245))
                     if plain
                     else self.fill_brush(x0, roww, chorus or stack)
                 )
@@ -1577,7 +1587,7 @@ class Overlay(QWidget):
             s = self.cfg["scale"]
             rect = QRectF(cx + 4 * s, cy - ascent * 0.8, 4 * s, ascent * 0.95)
             gc = self.glow_color()
-            for grow, al in ((7 * s, 40), (3 * s, 90)):
+            for grow, al in (((7 * s, 40), (3 * s, 90)) if self.cfg.get("text_glow", False) else ()):
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(QColor(gc.red(), gc.green(), gc.blue(), al))
                 p.drawRoundedRect(

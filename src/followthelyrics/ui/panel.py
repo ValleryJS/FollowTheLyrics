@@ -17,6 +17,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPen
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QRadialGradient
+from PyQt6.QtWidgets import QColorDialog
 from PyQt6.QtWidgets import QButtonGroup
 from PyQt6.QtWidgets import QFrame
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
@@ -698,12 +699,33 @@ class Panel(QWidget):
                 i18n.tr("Blanc avec un léger halo."),
                 lambda: [QColor("#ffffff")],
             ),
+            "custom": widgets.ColorCard(
+                "custom",
+                i18n.tr("Couleur personnalisée"),
+                i18n.tr("Une couleur fixe, indépendante de la pochette."),
+                lambda: [QColor(self.app.cfg.get("custom_color", "#FFB86C"))],
+            ),
         }
         for key, c in self.color_cards.items():
             self.color_group.addButton(c)
             c.clicked.connect(lambda _=False, k=key: self.set("color", k))
             row.addWidget(c)
         colors.lay.addLayout(row)
+        self.custom_color_button = button(i18n.tr("Choisir une couleur…"), "secondary")
+        self.custom_color_button.clicked.connect(self.choose_custom_color)
+        colors.add_row(
+            i18n.tr("Couleur personnalisée"),
+            self.custom_color_button,
+            i18n.tr("Choisissez la couleur utilisée en mode Personnalisé."),
+        )
+
+        glow = Card(i18n.tr("Effets du texte"))
+        self.opt["text_glow"] = widgets.Toggle()
+        glow.add_row(
+            i18n.tr("Halo autour du texte"),
+            self.opt["text_glow"],
+            i18n.tr("Ajoute une lueur douce autour des paroles."),
+        )
 
         motion = Card(i18n.tr("Animation"))
         self.style_picker = widgets.Segmented(translated(settings.STYLES))
@@ -758,7 +780,7 @@ class Panel(QWidget):
         self.populate_fonts()
         self.font_list.currentItemChanged.connect(self.on_font)
         fonts.add(self.font_list)
-        return [self.preview, colors, motion, fonts]
+        return [self.preview, colors, glow, motion, fonts]
 
     def build_music(self):
         src = Card(
@@ -1290,6 +1312,16 @@ class Panel(QWidget):
         if self.screen_sep is not None:
             self.screen_sep.setVisible(many)
 
+    def choose_custom_color(self):
+        initial = QColor(self.app.cfg.get("custom_color", "#FFB86C"))
+        chosen = QColorDialog.getColor(
+            initial, self, i18n.tr("Choisir une couleur"),
+            QColorDialog.ColorDialogOption.DontUseNativeDialog,
+        )
+        if chosen.isValid():
+            self.set("custom_color", chosen.name().upper())
+            self.set("color", "custom")
+
     def set(self, key, value):
         if self._building:
             return
@@ -1311,6 +1343,12 @@ class Panel(QWidget):
             self.position.setEnabled(column)
             self.position_row.setEnabled(column)
             self.color_cards[cfg["color"]].setChecked(True)
+            self.custom_color_button.setText(
+                f"{i18n.tr('Choisir une couleur…')}  {cfg.get('custom_color', '#FFB86C')}"
+            )
+            self.custom_color_button.setStyleSheet(
+                "border-left: 6px solid " + cfg.get("custom_color", "#FFB86C") + ";"
+            )
             self.style_picker.set_value(cfg["style"])
             self.title_drop.set_value(cfg.get("title_drop", "always"))
             self.style_row.setEnabled(cfg["mode"] != "typewriter")
@@ -1325,7 +1363,7 @@ class Panel(QWidget):
                     )
                 )
             for k, t in self.opt.items():
-                t.setChecked(bool(cfg.get(k, True)))
+                t.setChecked(bool(cfg.get(k, settings.DEFAULTS.get(k, True))))
             self.demo.setChecked(self.app.demo)
             self.autostart.setChecked(self.app.startup.enabled())
             self.master.setChecked(not self.app.overlay.user_hidden)
@@ -1349,7 +1387,7 @@ class Panel(QWidget):
             else mode
         )
         self.tile_style.set_value(
-            f"{'Album' if cfg['color'] == 'album' else 'Blanc'} · "
+            f"{i18n.tr(settings.COLORS[cfg['color']])} · "
             f"{i18n.tr(settings.STYLES[cfg['style']])}"
         )
         self.preview.update()

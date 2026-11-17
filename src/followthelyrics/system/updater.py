@@ -2,7 +2,9 @@ import hashlib
 import json
 import logging
 import os
+import subprocess
 import sys
+import tempfile
 import urllib.request
 
 from PyQt6.QtCore import QThread
@@ -35,7 +37,14 @@ def is_newer(candidate, current):
     return a + (0,) * (n - len(a)) > b + (0,) * (n - len(b))
 
 
+def repo_configured():
+    return "YOUR_GITHUB_USERNAME" not in version.REPO and version.REPO.count("/") == 1
+
+
 def fetch_latest(asset_name, timeout=8):
+    if not repo_configured():
+        return None
+
     api = os.environ.get("FTL_UPDATE_API") or API_URL
     if not api.startswith(f"https://api.github.com/repos/{version.REPO}/"):
         api = API_URL
@@ -133,6 +142,74 @@ def cleanup_leftovers():
     return ok
 
 
+
+
+WINDOWS_HELPER = r'''param(
+    [string]$TargetExe,
+    [string]$NewExe,
+    [int]$ParentPid,
+    [string]$InstalledVersion
+)
+$ErrorActionPreference = 'Stop'
+$backup = "$TargetExe.old"
+try {
+    try { Wait-Process -Id $ParentPid -Timeout 90 -ErrorAction Stop }
+    catch { if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { throw 'Application did not exit in time' } }
+    $complete = $false
+    for ($attempt = 0; $attempt -lt 25; $attempt++) {
+        try {
+            if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Force }
+            Move-Item -LiteralPath $TargetExe -Destination $backup -Force
+            try {
+                Move-Item -LiteralPath $NewExe -Destination $TargetExe -Force
+                $complete = $true
+                break
+            } catch {
+                Move-Item -LiteralPath $backup -Destination $TargetExe -Force
+                throw
+            }
+        } catch {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    if (-not $complete) { throw 'Cannot replace the application executable' }
+    Start-Process -FilePath $TargetExe -ArgumentList @('--updated', $InstalledVersion) -WorkingDirectory (Split-Path -Parent $TargetExe)
+    # Keep backup for the application to remove on its next startup.
+} catch {
+    Add-Content -LiteralPath (Join-Path $env:TEMP 'FollowTheLyrics-update-error.log') -Value "$(Get-Date -Format o) $_"
+    if (-not (Test-Path -LiteralPath $TargetExe) -and (Test-Path -LiteralPath $backup)) {
+        Move-Item -LiteralPath $backup -Destination $TargetExe -Force
+    }
+    exit 1
+}
+'''
+
+
+def apply_windows_update(exe, new, installed_version):
+    """Launch a separate updater, then the caller must exit the GUI process."""
+    if sys.platform != "win32":
+        raise RuntimeError("Windows updater only")
+    if not os.path.isfile(new):
+        raise FileNotFoundError(new)
+    helper_dir = tempfile.mkdtemp(prefix="ftl-update-")
+    helper_path = os.path.join(helper_dir, "apply.ps1")
+    with open(helper_path, "w", encoding="utf-8-sig") as file:
+        file.write(WINDOWS_HELPER)
+    # No shell interpolation: executable paths and version are positional args.
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.Popen(
+        [
+            "powershell.exe", "-NoProfile", "-NonInteractive",
+            "-ExecutionPolicy", "Bypass", "-File", helper_path,
+            "-TargetExe", exe, "-NewExe", new,
+            "-ParentPid", str(os.getpid()),
+            "-InstalledVersion", installed_version,
+        ],
+        creationflags=flags,
+        close_fds=True,
+    )
+
+
 class UpdateCheck(QThread):
     found = pyqtSignal(dict)
     nothing = pyqtSignal(bool)
@@ -172,7 +249,8 @@ class UpdateInstall(QThread):
         new = exe + ".new"
         try:
             download(self.info, new, self.release, self.progress.emit)
-            swap(exe, new)
+            if sys.platform != "win32":
+                swap(exe, new)
         except PermissionError:
             self._clean(new)
             self.failed.emit(

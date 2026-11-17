@@ -34,6 +34,19 @@ def config_path(tmp_path, monkeypatch):
     return path
 
 
+def test_text_glow_defaults_off_and_persists(config_path):
+    cfg = settings.load_config()
+    assert cfg["text_glow"] is False
+    cfg["text_glow"] = True
+    settings.save_config(cfg)
+    assert settings.load_config()["text_glow"] is True
+
+
+def test_text_glow_invalid_value_falls_back_to_off(config_path):
+    config_path.write_text(json.dumps({"text_glow": "false"}), encoding="utf-8")
+    assert settings.load_config()["text_glow"] is False
+
+
 def test_load_config_returns_defaults_without_a_file(config_path):
     assert settings.load_config() == settings.DEFAULTS
 
@@ -91,3 +104,19 @@ def test_save_then_load_round_trips(config_path):
 )
 def test_app_label(app_id, label):
     assert settings.app_label(app_id) == label
+
+
+def test_custom_color_persists(config_path):
+    cfg = settings.load_config()
+    cfg["color"] = "custom"
+    cfg["custom_color"] = "#3f7acd"
+    settings.save_config(cfg)
+    loaded = settings.load_config()
+    assert loaded["color"] == "custom"
+    assert loaded["custom_color"] == "#3F7ACD"
+
+
+@pytest.mark.parametrize("bad", ["red", "#fff", "#12GG34", "#12345678", 123, None])
+def test_invalid_custom_colors_repaired(config_path, bad):
+    config_path.write_text(json.dumps({"color": "custom", "custom_color": bad}), encoding="utf-8")
+    assert settings.load_config()["custom_color"] == settings.DEFAULTS["custom_color"]

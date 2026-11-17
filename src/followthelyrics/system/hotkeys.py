@@ -7,7 +7,7 @@ from followthelyrics.desktop import ports
 ACTIONS = [
     ("toggle", "Afficher / masquer les paroles", "Ctrl+Alt+L"),
     ("mode", "Changer de mode d'affichage", "Ctrl+Alt+M"),
-    ("color", "Couleurs de l'album / blanc", "Ctrl+Alt+T"),
+    ("color", "Couleurs de l'album / blanc / personnalisé", "Ctrl+Alt+T"),
     ("style", "Changer d'animation", "Ctrl+Alt+S"),
     ("earlier", "Paroles plus tôt (+0,2 s)", "Ctrl+Alt+Up"),
     ("later", "Paroles plus tard (−0,2 s)", "Ctrl+Alt+Down"),

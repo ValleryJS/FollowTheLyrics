@@ -58,7 +58,7 @@ MODES = {
     ),
 }
 POSITIONS = {"left": "Gauche", "center": "Centre", "right": "Droite"}
-COLORS = {"album": "Couleurs de l'album", "white": "Blanc lumineux"}
+COLORS = {"album": "Couleurs de l'album", "white": "Blanc lumineux", "custom": "Couleur personnalisée"}
 STYLES = {"kinetic": "Cinétique", "karaoke": "Karaoké", "simple": "Simple"}
 TITLE_DROP = {"always": "Toujours", "desktop": "Hors jeu", "never": "Jamais"}
 
@@ -113,6 +113,7 @@ DEFAULTS: dict[str, Any] = {
     "mode": "edit",
     "position": "left",
     "color": "album",
+    "custom_color": "#FFB86C",
     "font": "Segoe UI Variable Display",
     "style": "kinetic",
     "scale": 1.0,
@@ -121,6 +122,7 @@ DEFAULTS: dict[str, Any] = {
     "lang": "en",
     "liriqo": True,
     "beat": True,
+    "text_glow": False,
     "card": True,
     "particles": True,
     "tilt": True,
@@ -166,6 +168,14 @@ def load_config():
         cfg["offset"] = float(cfg["offset"])
     except (TypeError, ValueError):
         cfg["scale"], cfg["offset"] = 1.0, 0.0
+    # Custom colours must be opaque #RRGGBB values; older configs are preserved.
+    custom = cfg.get("custom_color")
+    if not isinstance(custom, str) or len(custom) != 7 or custom[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in custom[1:]):
+        cfg["custom_color"] = DEFAULTS["custom_color"]
+    else:
+        cfg["custom_color"] = custom.upper()
+    if not isinstance(cfg.get("text_glow"), bool):
+        cfg["text_glow"] = DEFAULTS["text_glow"]
     if not isinstance(cfg.get("screen"), str):
         cfg["screen"] = ""
     for old in ("theme",):
