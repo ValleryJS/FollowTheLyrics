@@ -281,6 +281,11 @@ def draw_icon(p, name, rect, color, width=1.7):
         p.setPen(Qt.PenStyle.NoPen)
         p.drawEllipse(QPointF(12.6, 9.2), 1.05, 1.05)
         p.drawEllipse(QPointF(14.8, 11.4), 1.05, 1.05)
+    elif name == "addons":
+        p.drawRoundedRect(QRectF(2.0, 2.0, 6.9, 6.9), 1.2, 1.2)
+        p.drawRoundedRect(QRectF(11.1, 2.0, 6.9, 6.9), 1.2, 1.2)
+        p.drawRoundedRect(QRectF(2.0, 11.1, 6.9, 6.9), 1.2, 1.2)
+        p.drawRoundedRect(QRectF(11.1, 11.1, 6.9, 6.9), 1.2, 1.2)
     elif name == "keys":
         p.drawRoundedRect(QRectF(1.8, 4.8, 16.4, 10.6), 2.6, 2.6)
         p.drawLine(QPointF(6.5, 12.3), QPointF(13.5, 12.3))

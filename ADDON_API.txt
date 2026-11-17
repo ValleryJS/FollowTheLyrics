@@ -1,0 +1,43 @@
+FollowTheLyrics Add-on API v1 (FTL 2.2.4)
+
+Add-ons are external applications. They cannot change the FollowTheLyrics UI.
+An installed add-on starts only after the user explicitly enables it.
+
+Package contents:
+  addon.json             Add-on manifest (required)
+  main.exe or main.py     Executable entrypoint (required)
+
+Example addon.json:
+{
+  "id": "example-lyrics",
+  "name": "Example Lyrics",
+  "version": "1.0.0",
+  "author": "Developer Name",
+  "entrypoint": "main.exe",
+  "permissions": ["lyrics.read", "playback.read"]
+}
+
+For end users, distribute a self-contained Windows .exe. Python scripts
+require a separate Python installation when FTL is packaged as an .exe.
+
+The add-on process receives one UTF-8 JSON object per line on standard input:
+  {"type":"track","title":"...","artist":"...","playing":true,...}
+  {"type":"lyrics","lines":[{"time":0.0,"text":"...","chars":[],...}]}
+  {"type":"position","seconds":12.3,"playing":true}
+  {"type":"settings","key":"style","value":"kinetic"}
+
+Time values are in seconds. The FTL_API_VERSION environment variable is 1.
+The FTL_ADDON_ID environment variable contains the add-on identifier.
+FTL does not accept commands or executable code over this protocol.
+This version does not support external lyric output takeover yet.
+
+Catalogue:
+  Submit a pull request against addons.json. An approved entry must contain
+  the id, name, version, author, HTTPS GitHub Release ZIP URL and SHA-256
+  checksum of the exact ZIP bytes. The catalogue owner reviews the change.
+  Set status to coming_soon for an announced add-on without a release.
+
+Security:
+  Packages are checksum-verified and checked for unsafe archive paths.
+  Add-ons are NOT sandboxed. They execute with the user's OS permissions.
+  Only enable code from developers you trust.

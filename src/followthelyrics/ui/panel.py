@@ -4,8 +4,10 @@ from PyQt6.QtCore import QPointF
 from PyQt6.QtCore import QRectF
 from PyQt6.QtCore import QSize
 from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QThread
 from PyQt6.QtCore import QTimer
 from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QBrush
 from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QDesktopServices
@@ -17,8 +19,8 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtGui import QPen
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtGui import QRadialGradient
-from PyQt6.QtWidgets import QColorDialog
 from PyQt6.QtWidgets import QButtonGroup
+from PyQt6.QtWidgets import QColorDialog
 from PyQt6.QtWidgets import QFrame
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
@@ -28,6 +30,7 @@ from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QLineEdit
 from PyQt6.QtWidgets import QListWidget
 from PyQt6.QtWidgets import QListWidgetItem
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtWidgets import QScrollArea
 from PyQt6.QtWidgets import QSlider
@@ -41,6 +44,7 @@ from followthelyrics.config import settings
 from followthelyrics.desktop import ports
 from followthelyrics.overlay import screens
 from followthelyrics.playback import sites
+from followthelyrics.system import addons
 from followthelyrics.system import hotkeys
 from followthelyrics.ui import logos
 from followthelyrics.ui import widgets
@@ -100,6 +104,13 @@ PAGES = [
         "Ils marchent même en pleine partie.",
     ),
     (
+        "addons",
+        "Add-ons",
+        "addons",
+        "Add-ons",
+        "Integrations for other apps and games.",
+    ),
+    (
         "general",
         "Général",
         "sliders",
@@ -107,6 +118,20 @@ PAGES = [
         "Démarrage, mises à jour, à propos.",
     ),
 ]
+
+
+class AddonJob(QThread):
+    finished_result = pyqtSignal(object, object)
+
+    def __init__(self, function, parent=None):
+        super().__init__(parent)
+        self.function = function
+
+    def run(self):
+        try:
+            self.finished_result.emit(self.function(), None)
+        except Exception as exc:  # noqa: BLE001 - report background errors in the UI
+            self.finished_result.emit(None, str(exc))
 
 
 class FontPreview(QWidget):
@@ -317,6 +342,7 @@ class Panel(QWidget):
             ("music", self.build_music),
             ("games", self.build_games),
             ("keys", self.build_keys),
+            ("addons", self.build_addons),
             ("general", self.build_general),
         ):
             self.pages[key] = self.make_page(builder())
@@ -1148,6 +1174,146 @@ class Panel(QWidget):
                 pretty(up), pretty(down)
             )
         self.offset_row.hint_label.setText(tip)
+
+    def build_addons(self):
+        self.addon_manager = addons.AddonManager()
+        self.addon_catalogue = []
+        self.addon_job = None
+        browse = Card("Browse add-ons", "Only add-ons approved for the FollowTheLyrics catalogue appear here.")
+        self.addon_available = QListWidget()
+        self.addon_available.setMinimumHeight(150)
+        browse.add(self.addon_available)
+        self.addon_refresh_button = button("Refresh catalogue")
+        self.addon_refresh_button.clicked.connect(self.refresh_addon_catalogue)
+        self.addon_install_button = button("Install selected")
+        self.addon_install_button.clicked.connect(self.install_selected_addon)
+        browse.add(hbox(self.addon_refresh_button, self.addon_install_button))
+
+        installed = Card("Installed", "Installed add-ons are disabled until you choose to enable them.")
+        self.addon_installed = QListWidget()
+        self.addon_installed.setMinimumHeight(120)
+        installed.add(self.addon_installed)
+        self.addon_toggle_button = button("Enable / Disable")
+        self.addon_toggle_button.clicked.connect(self.toggle_selected_addon)
+        self.addon_remove_button = button("Uninstall")
+        self.addon_remove_button.clicked.connect(self.uninstall_selected_addon)
+        installed.add(hbox(self.addon_toggle_button, self.addon_remove_button))
+
+        self.addon_status = QLabel("Refresh the catalogue to browse add-ons.")
+        self.addon_status.setProperty("role", "hint")
+        self.addon_status.setWordWrap(True)
+        installed.add(self.addon_status)
+        self.refresh_installed_addons()
+        return [browse, installed]
+
+    def refresh_installed_addons(self):
+        self.addon_installed.clear()
+        for entry in self.addon_manager.installed():
+            status = "Enabled" if entry["enabled"] else "Disabled"
+            item = QListWidgetItem(f"{entry['name']}  ·  {entry['version']}  ·  {status}")
+            item.setData(Qt.ItemDataRole.UserRole, entry["id"])
+            self.addon_installed.addItem(item)
+
+    def selected_addon(self, widget):
+        item = widget.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+    def addon_background(self, operation, callback):
+        if self.addon_job is not None and self.addon_job.isRunning():
+            return
+        self.addon_refresh_button.setEnabled(False)
+        self.addon_install_button.setEnabled(False)
+        job = AddonJob(operation, self)
+        self.addon_job = job
+
+        def complete(result, error):
+            self.addon_refresh_button.setEnabled(True)
+            self.addon_install_button.setEnabled(True)
+            if error:
+                self.addon_status.setText(f"Add-on operation failed: {error}")
+            else:
+                callback(result)
+            self.refresh_installed_addons()
+
+        job.finished_result.connect(complete)
+        job.start()
+
+    def refresh_addon_catalogue(self):
+        self.addon_status.setText("Checking GitHub catalogue...")
+
+        def show(entries):
+            self.addon_catalogue = entries
+            self.addon_available.clear()
+            for entry in entries:
+                state = "Coming soon" if entry.get("status") == "coming_soon" else "Available"
+                origin = "Official" if entry.get("official") else "Community"
+                item = QListWidgetItem(f"{entry['name']}  ·  {entry['version']}  ·  {origin}  ·  {state}")
+                item.setToolTip(entry.get("description", ""))
+                item.setData(Qt.ItemDataRole.UserRole, entry["id"])
+                self.addon_available.addItem(item)
+            self.addon_status.setText(f"{len(entries)} add-on(s) in catalogue.")
+
+        self.addon_background(addons.fetch_catalogue, show)
+
+    def install_selected_addon(self):
+        addon_id = self.selected_addon(self.addon_available)
+        entry = next((a for a in self.addon_catalogue if a["id"] == addon_id), None)
+        if entry is None:
+            self.addon_status.setText("Select an add-on first.")
+            return
+        if entry.get("status") == "coming_soon":
+            self.addon_status.setText("This add-on has not been released yet.")
+            return
+        message = f"Install {entry['name']} by {entry.get('author', 'Unknown')}?\n\nThird-party add-ons can run code on your computer. Only install software you trust."
+        if QMessageBox.question(self, "Install add-on", message) != QMessageBox.StandardButton.Yes:
+            return
+        self.addon_status.setText(f"Installing {entry['name']}...")
+
+        def perform():
+            data = addons.download_package(entry["download"])
+            return self.addon_manager.install(data, addon_id, entry["sha256"])
+
+        self.addon_background(perform, lambda _: self.addon_status.setText("Add-on installed. It is disabled by default."))
+
+    def toggle_selected_addon(self):
+        addon_id = self.selected_addon(self.addon_installed)
+        entry = next((a for a in self.addon_manager.installed() if a["id"] == addon_id), None)
+        if entry is None:
+            self.addon_status.setText("Select an installed add-on first.")
+            return
+        enabled = not entry["enabled"]
+        permissions = ", ".join(entry.get("permissions", [])) or "Not declared"
+        prompt = (
+            f"Enable {entry['name']}?\n\n"
+            f"Declared data access: {permissions}\n\n"
+            "This add-on runs code with your Windows user permissions. "
+            "Only enable add-ons from developers you trust."
+        )
+        if enabled and QMessageBox.question(
+            self, "Enable add-on", prompt
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        self.addon_manager.set_enabled(addon_id, enabled)
+        self.app.addon_runtime.start_enabled()
+        self.refresh_installed_addons()
+        active = addon_id in self.app.addon_runtime.processes
+        self.addon_status.setText(
+            "Add-on process started." if active else (
+                "Add-on enabled, but the process could not start."
+                if enabled else "Add-on disabled."
+            )
+        )
+
+    def uninstall_selected_addon(self):
+        addon_id = self.selected_addon(self.addon_installed)
+        if addon_id is None:
+            return
+        if QMessageBox.question(self, "Uninstall add-on", f"Remove {addon_id} and its local files?") != QMessageBox.StandardButton.Yes:
+            return
+        self.addon_manager.uninstall(addon_id)
+        self.app.addon_runtime.start_enabled()
+        self.refresh_installed_addons()
+        self.addon_status.setText("Add-on removed.")
 
     def build_general(self):
         cards = []

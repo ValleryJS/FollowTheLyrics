@@ -28,6 +28,7 @@ from followthelyrics.overlay import window
 from followthelyrics.playback import audio
 from followthelyrics.playback import sites
 from followthelyrics.playback import worker
+from followthelyrics.system import addons
 from followthelyrics.system import hotkeys
 from followthelyrics.system import install
 from followthelyrics.system import startup
@@ -52,6 +53,8 @@ class App:
         self.installation = installation_of(self.desktop, self.startup)
         self.quitting = False
         self.cfg = settings.load_config()
+        self.addon_manager = addons.AddonManager()
+        self.addon_runtime = addons.AddonRuntime(self.addon_manager)
         i18n.set_language(self.cfg.get("lang", i18n.DEFAULT))
         self.profiles = games.load_profiles()
         self.profiles_mtime = games.profiles_mtime()
@@ -112,6 +115,10 @@ class App:
         self.hotkeys.failed.connect(self.on_hotkeys_failed)
 
         self.panel = panel.Panel(self)
+        self.addon_runtime.start_enabled()
+        self.addon_timer = QTimer()
+        self.addon_timer.timeout.connect(self.publish_addon_position)
+        self.addon_timer.start(200)
         gui = QGuiApplication.instance()
         if isinstance(gui, QGuiApplication):
             gui.screenAdded.connect(self.screens_changed)
@@ -349,8 +356,27 @@ class App:
             self.panel.sync_from_cfg()
             self.show_panel()
 
+    def publish_addon_position(self):
+        if self.addon_runtime.processes:
+            self.addon_runtime.publish({
+                "type": "position",
+                "seconds": self.overlay.raw_position(),
+                "playing": bool(self.overlay.playing),
+            })
+
     def w_track(self, np):
         self.real_track = np
+        self.addon_runtime.publish({
+            "type": "track",
+            "title": np.title if np else "",
+            "artist": np.artist if np else "",
+            "album": np.album if np else "",
+            "duration": np.duration if np else 0,
+            "position": np.position if np else 0,
+            "playing": bool(np and np.playing),
+            "style": self.cfg.get("style", "kinetic"),
+            "color": self.cfg.get("color", "album"),
+        })
         if self.audio:
             self.audio.music_playing = bool(np and np.playing)
         if self.demo:
@@ -392,6 +418,8 @@ class App:
 
     def w_lyrics(self, key, lines):
         self.store_lyrics[key] = lines
+        if self.real_track and key == self.real_track.key:
+            self.addon_runtime.publish(addons.lyrics_event(lines))
         if not self.demo:
             self.overlay.on_lyrics(key, lines)
 
@@ -467,11 +495,16 @@ class App:
 
     def set_cfg(self, key, value):
         self.cfg[key] = value
+        self.addon_runtime.publish(
+            {"type": "settings", "key": key, "value": value}
+        )
         settings.save_config(self.cfg)
         o = self.overlay
         if key in ("scale", "screen"):
             o.apply_geometry()
-        elif key in ("mode", "position", "font", "translation", "stack", "text_scaling"):
+        elif key in (
+            "mode", "position", "font", "translation", "stack", "text_scaling"
+        ):
             o.reset_layout()
         if key == "translation":
             self.worker.translate = bool(value)
@@ -666,6 +699,8 @@ class App:
 
     def cleanup(self):
         self.quitting = True
+        self.addon_timer.stop()
+        self.addon_runtime.stop()
         self.tray.hide()
         self.overlay.remove_foreground_hook()
         if self.audio:
