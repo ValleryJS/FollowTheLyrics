@@ -1,5 +1,3 @@
-"""Developer-maintained catalogue for approved integrations."""
-
 import hashlib
 import json
 import os
@@ -19,8 +17,6 @@ MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024
 
 
 def is_newer(installed: str, available: str) -> bool:
-    """Compare numeric release versions without lexicographic mistakes."""
-
     def parts(value: str):
         value = value.removeprefix("v")
         if not re.fullmatch(r"\d+(?:\.\d+){0,3}", value):

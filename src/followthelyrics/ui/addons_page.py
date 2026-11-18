@@ -1,5 +1,3 @@
-"""Approved catalogue and local add-on management UI."""
-
 import logging
 import os
 import tempfile
@@ -238,7 +236,7 @@ class AddonsPage(QFrame):
             self.status.setText(
                 f"Installed {addon.name}. Enable it below to use it."
             )
-        except Exception as exc:  # noqa: BLE001 - show installation failures in UI
+        except Exception as exc:  # noqa: BLE001
             self.task_failed(str(exc))
         finally:
             Path(path).unlink(missing_ok=True)
@@ -269,7 +267,7 @@ class AddonsPage(QFrame):
             )
             self.render_installed()
             self.show_catalogue(self.entries)
-        except Exception as exc:  # noqa: BLE001 - show installation failures in UI
+        except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "Install failed", str(exc))
 
     def render_installed(self):
@@ -325,7 +323,7 @@ class AddonsPage(QFrame):
                 self.app.addons.enable(addon_id)
             else:
                 self.app.addons.disable(addon_id)
-        except Exception as exc:  # noqa: BLE001 - third-party code may raise anything
+        except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "Add-on error", str(exc))
         self.render_installed()
 
@@ -343,5 +341,5 @@ class AddonsPage(QFrame):
             self.app.addons.uninstall(addon_id)
             self.render_installed()
             self.show_catalogue(self.entries)
-        except Exception as exc:  # noqa: BLE001 - show filesystem failures in UI
+        except Exception as exc:  # noqa: BLE001
             QMessageBox.warning(self, "Remove failed", str(exc))

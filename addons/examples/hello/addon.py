@@ -1,5 +1,3 @@
-"""Example third-party add-on. Package with manifest.json at ZIP root."""
-
 _api = None
 
 

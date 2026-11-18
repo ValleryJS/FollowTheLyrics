@@ -1,5 +1,3 @@
-"""Installed add-on lifecycle and explicit local ZIP installation."""
-
 import importlib.util
 import json
 import logging
@@ -36,8 +34,6 @@ class AddonInfo:
 
 
 class AddonAPI:
-    """Small stable surface given to third-party add-ons."""
-
     api_version = 1
 
     def __init__(self, addon_id: str):
