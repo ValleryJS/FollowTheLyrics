@@ -21,6 +21,7 @@ from followthelyrics import diagnostics
 from followthelyrics import i18n
 from followthelyrics import logs
 from followthelyrics import version
+from followthelyrics.addons.manager import AddonManager
 from followthelyrics.config import games
 from followthelyrics.config import settings
 from followthelyrics.lyrics import demo_song
@@ -52,6 +53,7 @@ class App:
         self.installation = installation_of(self.desktop, self.startup)
         self.quitting = False
         self.cfg = settings.load_config()
+        self.addons = AddonManager(settings.DATA_DIR)
         i18n.set_language(self.cfg.get("lang", i18n.DEFAULT))
         self.profiles = games.load_profiles()
         self.profiles_mtime = games.profiles_mtime()
@@ -351,6 +353,11 @@ class App:
 
     def w_track(self, np):
         self.real_track = np
+        self.addons.emit("on_track", (
+            {"title": np.title, "artist": np.artist, "album": np.album,
+             "playing": np.playing, "duration": np.duration,
+             "position": np.position, "app": np.app} if np else None
+        ))
         if self.audio:
             self.audio.music_playing = bool(np and np.playing)
         if self.demo:
@@ -392,6 +399,10 @@ class App:
 
     def w_lyrics(self, key, lines):
         self.store_lyrics[key] = lines
+        self.addons.emit("on_lyrics", str(key), [
+            {"time": line.time, "text": line.text, "end": line.end}
+            for line in lines
+        ])
         if not self.demo:
             self.overlay.on_lyrics(key, lines)
 
@@ -668,6 +679,7 @@ class App:
 
     def cleanup(self):
         self.quitting = True
+        self.addons.shutdown()
         self.tray.hide()
         self.overlay.remove_foreground_hook()
         if self.audio:

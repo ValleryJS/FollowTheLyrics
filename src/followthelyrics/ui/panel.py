@@ -41,6 +41,7 @@ from followthelyrics.desktop import ports
 from followthelyrics.overlay import screens
 from followthelyrics.playback import sites
 from followthelyrics.system import hotkeys
+from followthelyrics.ui import addons_page
 from followthelyrics.ui import logos
 from followthelyrics.ui import widgets
 
@@ -1153,7 +1154,7 @@ class Panel(QWidget):
         self.offset_row.hint_label.setText(tip)
 
     def build_addons(self):
-        return [Card("Add-ons", "Coming soon - feature in development")]
+        return [addons_page.AddonsPage(self.app)]
 
     def build_general(self):
         cards = []
