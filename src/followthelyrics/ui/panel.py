@@ -1314,12 +1314,18 @@ class Panel(QWidget):
     def refresh_screens(self):
         found = QGuiApplication.screens()
         options = screens.choices(found)
+        if len(found) > 1:
+            options[screens.SPAN_ALL] = "All monitors (spanned)"
         if self.screen_pick is not None:
             self.screen_pick.setParent(None)
             self.screen_pick.deleteLater()
         self.screen_pick = widgets.Segmented(options)
         self.screen_pick.set_value(
-            screens.key_of(found, self.app.overlay.chosen_screen())
+            screens.selection_key(
+                found,
+                QGuiApplication.primaryScreen(),
+                self.app.cfg.get("screen", ""),
+            )
         )
         self.screen_pick.changed.connect(lambda k: self.set("screen", k))
         box = self.screen_box.layout()
@@ -1375,9 +1381,10 @@ class Panel(QWidget):
             self.size_lbl.setText(f"{self.size_slider.value()} %")
             if self.screen_pick is not None:
                 self.screen_pick.set_value(
-                    screens.key_of(
+                    screens.selection_key(
                         QGuiApplication.screens(),
-                        self.app.overlay.chosen_screen(),
+                        QGuiApplication.primaryScreen(),
+                        cfg.get("screen", ""),
                     )
                 )
             for k, t in self.opt.items():

@@ -1,4 +1,15 @@
+from PyQt6.QtCore import QRect
+
 MAX_LABEL = 24
+SPAN_ALL = "__all__"
+
+
+def spanned_geometry(screen_list):
+    """Bounding rectangle of the desktop, including non-primary screens."""
+    bounds = QRect()
+    for screen in screen_list:
+        bounds = bounds.united(screen.geometry())
+    return bounds
 
 
 def _base_key(screen):
@@ -45,3 +56,9 @@ def key_of(screens, screen):
         if s is screen:
             return k
     return ""
+
+
+def selection_key(screen_list, primary, wanted):
+    if wanted == SPAN_ALL and len(screen_list) > 1:
+        return SPAN_ALL
+    return key_of(screen_list, pick(screen_list, primary, wanted))

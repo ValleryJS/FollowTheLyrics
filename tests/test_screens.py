@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+from PyQt6.QtCore import QRect
+
 from followthelyrics.config import settings
 from followthelyrics.overlay import screens
 
@@ -63,3 +65,28 @@ def test_screen_setting_is_repaired(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "CONFIG_PATH", str(path))
 
     assert settings.load_config()["screen"] == ""
+
+
+def test_spanned_geometry_includes_negative_monitors_and_gaps():
+    left = SimpleNamespace(geometry=lambda: QRect(-1920, 150, 1920, 1080))
+    main = SimpleNamespace(geometry=lambda: QRect(0, 0, 2560, 1440))
+    above = SimpleNamespace(geometry=lambda: QRect(400, -900, 1600, 900))
+
+    assert screens.spanned_geometry([left, main, above]) == QRect(
+        -1920, -900, 4480, 2340
+    )
+
+
+def test_spanned_geometry_is_empty_without_monitors():
+    assert screens.spanned_geometry([]).isNull()
+
+
+def test_span_option_is_preserved_until_only_one_monitor_remains():
+    assert (
+        screens.selection_key([MSI, ASUS], MSI, screens.SPAN_ALL)
+        == screens.SPAN_ALL
+    )
+    assert (
+        screens.selection_key([MSI], MSI, screens.SPAN_ALL)
+        == screens.key_of([MSI], MSI)
+    )

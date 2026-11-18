@@ -134,6 +134,13 @@ class Overlay(QWidget):
         self.top_timer.start(500)
 
     def apply_geometry(self):
+        if self.cfg.get("screen") == screens.SPAN_ALL:
+            bounds = screens.spanned_geometry(QGuiApplication.screens())
+            if not bounds.isNull():
+                self.setGeometry(bounds)
+                self.update_zones()
+                self.reset_layout()
+            return
         screen = self.target_screen()
         if screen is None:
             return
