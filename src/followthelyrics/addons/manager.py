@@ -134,7 +134,7 @@ class AddonManager:
             )
         return items
 
-    def install(self, archive: str | Path, approved: bool = False) -> AddonInfo:
+    def _prepare_archive(self, archive: str | Path) -> tuple[dict, Path]:
         archive = Path(archive)
         if archive.stat().st_size > MAX_ARCHIVE_BYTES:
             raise AddonError("Add-on ZIP exceeds size limit")
@@ -148,10 +148,6 @@ class AddonManager:
             if "manifest.json" not in source.namelist():
                 raise AddonError("ZIP must contain manifest.json at its root")
             manifest = self._manifest(json.loads(source.read("manifest.json")))
-            addon_id = manifest["id"]
-            target = self.root / addon_id
-            if target.exists():
-                raise AddonError(f"Add-on {addon_id} is already installed")
             if manifest["entry"] not in source.namelist():
                 raise AddonError("Entry file is missing from the ZIP")
             for member in members:
@@ -168,12 +164,79 @@ class AddonManager:
             temporary = Path(tempfile.mkdtemp(prefix="addon-", dir=self.root))
             try:
                 source.extractall(temporary)
-                temporary.rename(target)
             except Exception:
                 shutil.rmtree(temporary)
                 raise
+        return manifest, temporary
+
+    def install(self, archive: str | Path, approved: bool = False) -> AddonInfo:
+        manifest, temporary = self._prepare_archive(archive)
+        addon_id = manifest["id"]
+        target = self.root / addon_id
+        try:
+            if target.exists():
+                raise AddonError(f"Add-on {addon_id} is already installed")
+            temporary.rename(target)
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
         self.state[addon_id] = {"enabled": False, "approved": bool(approved)}
         self._write_state()
+        return next(item for item in self.list_addons() if item.id == addon_id)
+
+    def update(
+        self, addon_id: str, archive: str | Path, approved: bool = False
+    ) -> AddonInfo:
+        self._installed_manifest(addon_id)
+        manifest, staged = self._prepare_archive(archive)
+        if manifest["id"] != addon_id:
+            shutil.rmtree(staged)
+            raise AddonError("Updated add-on ID does not match installation")
+
+        original_state = dict(self.state.get(addon_id, {}))
+        was_enabled = addon_id in self.modules
+        target = self.root / addon_id
+        backup = Path(tempfile.mkdtemp(prefix="addon-backup-", dir=self.root))
+        backup.rmdir()
+        moved_old = False
+        try:
+            if was_enabled:
+                self.disable(addon_id)
+            target.rename(backup)
+            moved_old = True
+            staged.rename(target)
+            if was_enabled:
+                self._load(addon_id)
+            self.state[addon_id] = {
+                **original_state,
+                "enabled": was_enabled,
+                "approved": approved or bool(original_state.get("approved")),
+            }
+            self.errors.pop(addon_id, None)
+            self._write_state()
+        except Exception as exc:
+            if moved_old:
+                if target.exists():
+                    shutil.rmtree(target)
+                backup.rename(target)
+            self.modules.pop(addon_id, None)
+            if was_enabled:
+                try:
+                    self._load(addon_id)
+                except Exception:
+                    logger.exception(
+                        "Could not restart original add-on %s", addon_id
+                    )
+            self.state[addon_id] = original_state
+            self._write_state()
+            raise AddonError(
+                f"Update failed; previous add-on restored: {exc}"
+            ) from exc
+        finally:
+            if staged.exists():
+                shutil.rmtree(staged)
+            if backup.exists():
+                shutil.rmtree(backup)
         return next(item for item in self.list_addons() if item.id == addon_id)
 
     def _load(self, addon_id: str) -> None:
@@ -225,6 +288,18 @@ class AddonManager:
         self.disable(addon_id)
         shutil.rmtree(self.root / addon_id)
         self.state.pop(addon_id, None)
+        self._write_state()
+
+    def external_version(self, addon_id: str) -> str | None:
+        if not ID_PATTERN.fullmatch(addon_id):
+            raise AddonError("Invalid add-on ID")
+        value = self.state.get(f"external:{addon_id}", {}).get("downloaded")
+        return value if isinstance(value, str) else None
+
+    def mark_external_download(self, addon_id: str, version: str) -> None:
+        if not ID_PATTERN.fullmatch(addon_id):
+            raise AddonError("Invalid add-on ID")
+        self.state[f"external:{addon_id}"] = {"downloaded": version}
         self._write_state()
 
     def emit(self, callback_name: str, *args) -> None:

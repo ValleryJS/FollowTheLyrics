@@ -18,6 +18,20 @@ MAX_CATALOGUE_BYTES = 1024 * 1024
 MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024
 
 
+def is_newer(installed: str, available: str) -> bool:
+    """Compare numeric release versions without lexicographic mistakes."""
+
+    def parts(value: str):
+        value = value.removeprefix("v")
+        if not re.fullmatch(r"\d+(?:\.\d+){0,3}", value):
+            return None
+        numbers = tuple(int(part) for part in value.split("."))
+        return numbers + (0,) * (4 - len(numbers))
+
+    before, after = parts(installed), parts(available)
+    return before is not None and after is not None and after > before
+
+
 class CatalogueError(ValueError):
     pass
 

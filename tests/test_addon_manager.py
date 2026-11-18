@@ -124,3 +124,75 @@ def test_uninstall_removes_only_selected_addon(tmp_path):
     manager.uninstall("sample-addon")
     assert manager.list_addons() == []
     assert (tmp_path / "data" / "addons").is_dir()
+
+
+def test_update_replaces_package_and_preserves_enabled_state(tmp_path):
+    manager = AddonManager(tmp_path / "data")
+    first = package(tmp_path / "old.zip", code="VERSION = 'old'\n")
+    manager.install(first, approved=True)
+    manager.enable("sample-addon")
+    new_manifest = {
+        "id": "sample-addon",
+        "name": "Sample add-on",
+        "version": "2.0.0",
+        "api_version": 1,
+        "entry": "addon.py",
+    }
+    updated = package(
+        tmp_path / "new.zip",
+        manifest=new_manifest,
+        code="VERSION = 'new'\n",
+    )
+    result = manager.update("sample-addon", updated, approved=True)
+    assert result.version == "2.0.0"
+    assert result.enabled is True
+    assert manager.modules["sample-addon"].VERSION == "new"
+    assert result.approved is True
+
+
+def test_update_failure_restores_previous_package_and_process(tmp_path):
+    manager = AddonManager(tmp_path / "data")
+    manager.install(package(tmp_path / "old.zip", code="VERSION = 'old'\n"))
+    manager.enable("sample-addon")
+    newer = package(
+        tmp_path / "bad.zip",
+        manifest={
+            "id": "sample-addon",
+            "name": "Broken",
+            "version": "2.0.0",
+            "api_version": 1,
+            "entry": "addon.py",
+        },
+        code="raise RuntimeError('cannot start')\n",
+    )
+    with pytest.raises(AddonError, match="restored"):
+        manager.update("sample-addon", newer)
+    assert manager.list_addons()[0].version == "1.0.0"
+    assert manager.list_addons()[0].enabled is True
+    assert manager.modules["sample-addon"].VERSION == "old"
+
+
+def test_update_rejects_wrong_addon_id_without_modifying_existing(tmp_path):
+    manager = AddonManager(tmp_path / "data")
+    manager.install(package(tmp_path / "old.zip"))
+    wrong = package(
+        tmp_path / "wrong.zip",
+        manifest={
+            "id": "another-addon",
+            "name": "Another",
+            "version": "2.0.0",
+            "api_version": 1,
+            "entry": "addon.py",
+        },
+    )
+    with pytest.raises(AddonError, match="ID"):
+        manager.update("sample-addon", wrong)
+    assert manager.list_addons()[0].version == "1.0.0"
+
+
+def test_external_download_history_survives_restart(tmp_path):
+    manager = AddonManager(tmp_path / "data")
+    assert manager.external_version("ets2-sync") is None
+    manager.mark_external_download("ets2-sync", "1.0.0")
+    restarted = AddonManager(tmp_path / "data")
+    assert restarted.external_version("ets2-sync") == "1.0.0"

@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QVBoxLayout
 
 from followthelyrics.addons.catalogue import Catalogue
 from followthelyrics.addons.catalogue import CatalogueAddon
+from followthelyrics.addons.catalogue import is_newer
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,17 @@ class AddonsPage(QFrame):
             if entries
             else "No approved add-ons are published yet."
         )
-        installed = {a.id for a in self.app.addons.list_addons()}
+        installed = {a.id: a for a in self.app.addons.list_addons()}
         for addon in entries:
+            local = installed.get(addon.id) if addon.kind == "ftl" else None
+            earlier = (
+                local.version
+                if local
+                else self.app.addons.external_version(addon.id)
+            )
+            update_available = earlier is not None and is_newer(
+                earlier, addon.version
+            )
             row = QFrame()
             row.setProperty("role", "card")
             line = QHBoxLayout(row)
@@ -152,13 +162,24 @@ class AddonsPage(QFrame):
             badge = QLabel(f"Approved  ·  {kind}")
             badge.setProperty("role", "hint")
             details.addWidget(badge)
+            if earlier:
+                note = QLabel(
+                    f"{'Installed' if local else 'Downloaded'}: v{earlier}"
+                    + ("  ·  Update available" if update_available else "")
+                )
+                note.setProperty("role", "hint")
+                details.addWidget(note)
             line.addLayout(details, 1)
-            btn = QPushButton(
-                "Installed"
-                if addon.id in installed
-                else ("Install" if addon.kind == "ftl" else "Download ZIP")
-            )
-            btn.setEnabled(addon.id not in installed)
+            if local:
+                label = "Update" if update_available else "Installed"
+            elif addon.kind == "external":
+                label = (
+                    "Download update" if update_available else "Download ZIP"
+                )
+            else:
+                label = "Install"
+            btn = QPushButton(label)
+            btn.setEnabled(local is None or update_available)
             btn.clicked.connect(
                 lambda checked=False, a=addon: self.get_approved(a)
             )
@@ -192,6 +213,7 @@ class AddonsPage(QFrame):
 
     def approved_downloaded(self, addon, path):
         if addon.kind == "external":
+            self.app.addons.mark_external_download(addon.id, addon.version)
             QMessageBox.information(
                 self,
                 "Download complete",
@@ -200,9 +222,16 @@ class AddonsPage(QFrame):
                 f"{addon.instructions or 'See the mod author.'}",
             )
             self.status.setText(f"Downloaded {addon.name}.")
+            self.show_catalogue(self.entries)
             return
         try:
-            installed = self.app.addons.install(path, approved=True)
+            current = {a.id for a in self.app.addons.list_addons()}
+            if addon.id in current:
+                installed = self.app.addons.update(
+                    addon.id, path, approved=True
+                )
+            else:
+                installed = self.app.addons.install(path, approved=True)
             if installed.id != addon.id:
                 self.app.addons.uninstall(installed.id)
                 raise ValueError("Downloaded package ID differs from catalogue")

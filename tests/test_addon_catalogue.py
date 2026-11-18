@@ -7,6 +7,7 @@ import pytest
 
 from followthelyrics.addons.catalogue import Catalogue
 from followthelyrics.addons.catalogue import CatalogueError
+from followthelyrics.addons.catalogue import is_newer
 
 
 def response(data, url="https://example.org/catalog.json"):
@@ -90,3 +91,17 @@ def test_external_game_mod_is_listed_as_download_only():
     client = Catalogue()
     addon = client.parse({"addons": listing(kind="external")})[0]
     assert addon.kind == "external"
+
+
+@pytest.mark.parametrize(
+    ("installed", "available", "expected"),
+    [
+        ("1.0.0", "1.1.0", True),
+        ("1.9.0", "1.10.0", True),
+        ("2.0.0", "1.9.9", False),
+        ("1.2", "1.2.0", False),
+        ("unknown", "1.3", False),
+    ],
+)
+def test_catalogue_detects_newer_versions(installed, available, expected):
+    assert is_newer(installed, available) is expected
