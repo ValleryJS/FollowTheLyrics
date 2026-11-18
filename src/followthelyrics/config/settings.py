@@ -125,6 +125,7 @@ DEFAULTS: dict[str, Any] = {
     "text_glow": False,
     "text_scaling": False,
     "word_shake": False,
+    "output_mode": "desktop",
     "card": True,
     "particles": True,
     "tilt": True,

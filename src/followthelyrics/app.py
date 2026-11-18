@@ -31,6 +31,7 @@ from followthelyrics.playback import worker
 from followthelyrics.system import addons
 from followthelyrics.system import hotkeys
 from followthelyrics.system import install
+from followthelyrics.system import renderers
 from followthelyrics.system import startup
 from followthelyrics.system import updater
 from followthelyrics.ui import panel
@@ -55,6 +56,8 @@ class App:
         self.cfg = settings.load_config()
         self.addon_manager = addons.AddonManager()
         self.addon_runtime = addons.AddonRuntime(self.addon_manager)
+        self.renderer_gate = renderers.RendererGate()
+        self.renderer_gate.mode = self.cfg.get("output_mode", "desktop")
         i18n.set_language(self.cfg.get("lang", i18n.DEFAULT))
         self.profiles = games.load_profiles()
         self.profiles_mtime = games.profiles_mtime()
@@ -357,12 +360,34 @@ class App:
             self.show_panel()
 
     def publish_addon_position(self):
+        for event in self.addon_runtime.drain_events():
+            if event.get("ready"):
+                self.renderer_gate.acknowledge(event["addon_id"])
+        process = self.addon_runtime.processes.get("fivem-reshade")
+        is_running = process is not None and process.poll() is None
+        active = is_running and self.renderer_gate.route_to_external()
+        if self.overlay.external_output_active != active:
+            self.overlay.external_output_active = active
+            self.overlay.poke()
+            if self.panel.isVisible():
+                self.panel.refresh_renderer_status()
         if self.addon_runtime.processes:
             self.addon_runtime.publish({
                 "type": "position",
                 "seconds": self.overlay.raw_position(),
                 "playing": bool(self.overlay.playing),
             })
+
+    def set_output_mode(self, mode):
+        if mode not in ("desktop", "fivem"):
+            return
+        self.renderer_gate.mode = mode
+        self.cfg["output_mode"] = mode
+        settings.save_config(self.cfg)
+        if mode == "desktop":
+            self.overlay.external_output_active = False
+            self.overlay.poke()
+        self.panel.refresh_renderer_status()
 
     def w_track(self, np):
         self.real_track = np
@@ -387,6 +412,9 @@ class App:
         if np and o.track_key != before:
             if np.key in self.store_lyrics:
                 o.on_lyrics(np.key, self.store_lyrics[np.key])
+                self.addon_runtime.publish(
+                    addons.lyrics_event(self.store_lyrics[np.key])
+                )
             if np.key in self.store_cover:
                 o.on_cover(np.key, self.store_cover[np.key])
 

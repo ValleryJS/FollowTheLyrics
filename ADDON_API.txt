@@ -29,7 +29,12 @@ The add-on process receives one UTF-8 JSON object per line on standard input:
 Time values are in seconds. The FTL_API_VERSION environment variable is 1.
 The FTL_ADDON_ID environment variable contains the add-on identifier.
 FTL does not accept commands or executable code over this protocol.
-This version does not support external lyric output takeover yet.
+FTL v2.2.5 supports an experimental renderer readiness report. The official
+FiveM ReShade add-on may write this JSON line to standard output while its
+ReShade shader is actively rendering:
+  {"type":"rendering","ready":true}
+Only the installed fivem-reshade add-on can request this handoff. FTL returns
+to desktop lyrics when those acknowledgements stop for two seconds.
 
 Catalogue:
   Submit a pull request against addons.json. An approved entry must contain

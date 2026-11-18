@@ -116,3 +116,13 @@ def test_lyric_event_includes_word_and_character_timing():
     assert event["type"] == "lyrics"
     assert event["lines"][0]["text"] == "Hello world"
     assert event["lines"][0]["chars"] == [[12.0, 12.2]]
+
+
+def test_only_fivem_addon_may_report_renderer_readiness(tmp_path):
+    runtime = addons.AddonRuntime(addons.AddonManager(tmp_path))
+    runtime.receive_event("other-addon", '{"type":"rendering","ready":true}')
+    assert runtime.drain_events() == []
+    runtime.receive_event("fivem-reshade", '{"type":"rendering","ready":true}')
+    assert runtime.drain_events() == [
+        {"addon_id": "fivem-reshade", "type": "rendering", "ready": True}
+    ]

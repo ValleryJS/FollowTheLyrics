@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.21)
+project(FTLReShade LANGUAGES CXX)
+
+if(NOT WIN32)
+    message(FATAL_ERROR "FTLReShade is a Windows-only ReShade add-on")
+endif()
+if(NOT DEFINED RESHADE_INCLUDE_DIR)
+    message(FATAL_ERROR "Set RESHADE_INCLUDE_DIR to the ReShade SDK include folder")
+endif()
+
+add_library(FTLReShade SHARED FTLReShade.cpp)
+target_include_directories(FTLReShade PRIVATE "${RESHADE_INCLUDE_DIR}")
+target_compile_features(FTLReShade PRIVATE cxx_std_17)
+target_link_libraries(FTLReShade PRIVATE ws2_32)
+set_target_properties(FTLReShade PROPERTIES PREFIX "" SUFFIX ".addon64")

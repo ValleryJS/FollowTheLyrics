@@ -1,0 +1,42 @@
+name: Experimental FiveM Add-on
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build companion executable
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller
+          python -m PyInstaller --clean --onefile --console --name main src/followthelyrics/integrations/fivem_bridge.py
+      - name: Fetch ReShade SDK
+        shell: pwsh
+        run: git clone --depth 1 --branch v6.8.0 https://github.com/crosire/reshade.git reshade-sdk
+      - name: Build ReShade add-on
+        shell: pwsh
+        run: |
+          cmake -S integrations/fivem-reshade/native -B build/fivem-reshade -DRESHADE_INCLUDE_DIR="$pwd/reshade-sdk/include" -A x64
+          cmake --build build/fivem-reshade --config Release
+      - name: Assemble test package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release/fivem-reshade | Out-Null
+          Copy-Item dist/main.exe release/fivem-reshade/main.exe
+          Copy-Item integrations/fivem-reshade/addon.json release/fivem-reshade/
+          Copy-Item integrations/fivem-reshade/FTL_Live.fx release/fivem-reshade/
+          Copy-Item integrations/fivem-reshade/FTL_FontAtlas.png release/fivem-reshade/
+          Copy-Item integrations/fivem-reshade/SETUP.txt release/fivem-reshade/
+          Copy-Item build/fivem-reshade/Release/FTLReShade.addon64 release/fivem-reshade/
+          Compress-Archive -Path release/fivem-reshade/* -DestinationPath release/FTL_FiveM_ReShade_Test.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FTL_FiveM_ReShade_Test
+          path: release/FTL_FiveM_ReShade_Test.zip
+          retention-days: 7

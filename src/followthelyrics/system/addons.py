@@ -1,5 +1,6 @@
 """Curated external add-on catalogue and local package management."""
 
+import contextlib
 import hashlib
 import io
 import json
@@ -224,6 +225,7 @@ class AddonRuntime:
         self.processes = {}
         self.queues = {}
         self.threads = {}
+        self.feedback: Queue[dict] = Queue(maxsize=64)
 
     def start_enabled(self):
         self.stop()
@@ -251,7 +253,7 @@ class AddonRuntime:
                     command,
                     cwd=path,
                     stdin=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL,
                     env={
                         **os.environ,
@@ -270,6 +272,42 @@ class AddonRuntime:
             )
             self.threads[addon_id] = thread
             thread.start()
+            threading.Thread(
+                target=self._reader,
+                args=(addon_id, process),
+                daemon=True,
+            ).start()
+
+    def _reader(self, addon_id, process):
+        if process.stdout is None:
+            return
+        for line in process.stdout:
+            if len(line) <= 4096:
+                self.receive_event(addon_id, line.decode("utf-8", "replace"))
+
+    def receive_event(self, addon_id, line):
+        if addon_id != "fivem-reshade":
+            return
+        try:
+            event = json.loads(line)
+        except (ValueError, TypeError):
+            return
+        if not isinstance(event, dict) or event.get("type") != "rendering":
+            return
+        if event.get("ready") is not True:
+            return
+        with contextlib.suppress(Full):
+            self.feedback.put_nowait(
+                {"addon_id": addon_id, "type": "rendering", "ready": True}
+            )
+
+    def drain_events(self):
+        result = []
+        while True:
+            try:
+                result.append(self.feedback.get_nowait())
+            except Empty:
+                return result
 
     @staticmethod
     def _writer(process, pending):
@@ -311,3 +349,4 @@ class AddonRuntime:
         self.processes.clear()
         self.queues.clear()
         self.threads.clear()
+        self.drain_events()

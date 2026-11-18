@@ -1179,6 +1179,23 @@ class Panel(QWidget):
         self.addon_manager = addons.AddonManager()
         self.addon_catalogue = []
         self.addon_job = None
+        output = Card(
+            "Lyric output",
+            "FiveM ReShade is experimental. Desktop lyrics remain visible "
+            "until the renderer confirms it is displaying lyrics.",
+        )
+        self.output_selector = widgets.Segmented(
+            {"desktop": "Desktop", "fivem": "FiveM ReShade"}
+        )
+        self.output_selector.set_value(
+            self.app.cfg.get("output_mode", "desktop")
+        )
+        self.output_selector.changed.connect(self.app.set_output_mode)
+        output.add_row("Output", self.output_selector)
+        self.renderer_status = QLabel()
+        self.renderer_status.setProperty("role", "hint")
+        output.add(self.renderer_status)
+        self.refresh_renderer_status()
         browse = Card("Browse add-ons", "Only add-ons approved for the FollowTheLyrics catalogue appear here.")
         self.addon_available = QListWidget()
         self.addon_available.setMinimumHeight(150)
@@ -1204,7 +1221,22 @@ class Panel(QWidget):
         self.addon_status.setWordWrap(True)
         installed.add(self.addon_status)
         self.refresh_installed_addons()
-        return [browse, installed]
+        return [output, browse, installed]
+
+    def refresh_renderer_status(self):
+        if not hasattr(self, "renderer_status"):
+            return
+        gate = self.app.renderer_gate
+        process = self.app.addon_runtime.processes.get("fivem-reshade")
+        if gate.mode == "desktop":
+            status = "Desktop lyrics enabled."
+        elif process is None or process.poll() is not None:
+            status = "FiveM renderer offline. Desktop lyrics remain visible."
+        elif self.app.overlay.external_output_active:
+            status = "FiveM renderer active. Desktop lyrics paused."
+        else:
+            status = "Waiting for renderer confirmation. Desktop lyrics remain visible."
+        self.renderer_status.setText(status)
 
     def refresh_installed_addons(self):
         self.addon_installed.clear()
