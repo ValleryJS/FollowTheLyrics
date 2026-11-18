@@ -10,7 +10,16 @@ uniform float3 LyricColor < ui_type = "color"; > = float3(1.0, 1.0, 1.0);
 
 // Updated by FTLReShade.addon64, not by the desktop UI directly.
 uniform int FTL_Count = 0;
-uniform int FTL_Codes[64] = { 0 };
+uniform int FTL_Codes[64] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0
+};
 
 texture FTLFont < source = "FTL_FontAtlas.png"; >
 {

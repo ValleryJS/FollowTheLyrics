@@ -24,6 +24,9 @@ jobs:
         run: |
           cmake -S integrations/fivem-reshade/native -B build/fivem-reshade -DRESHADE_INCLUDE_DIR="$pwd/reshade-sdk/include" -A x64
           cmake --build build/fivem-reshade --config Release
+          if (!(Test-Path build/fivem-reshade/Release/FTLReShade.addon64)) {
+            throw "Native ReShade add-on was not produced"
+          }
       - name: Assemble test package
         shell: pwsh
         run: |
@@ -39,4 +42,9 @@ jobs:
         with:
           name: FTL_FiveM_ReShade_Test
           path: release/FTL_FiveM_ReShade_Test.zip
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FTLReShade_Native_Addon
+          path: build/fivem-reshade/Release/FTLReShade.addon64
           retention-days: 7

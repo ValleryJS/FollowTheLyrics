@@ -10,14 +10,22 @@ Do not bypass server restrictions. Do not use this on public RP servers.
 1. Install ReShade and confirm the existing FTL static test works.
 2. Put FTL_Live.fx in ReShade's Shaders folder.
 3. Put FTL_FontAtlas.png in ReShade's Textures folder.
-4. Put FTLReShade.addon64 in your ReShade add-on search folder.
+4. Build the native add-on from GitHub Actions > Experimental FiveM Add-on >
+   Run workflow. Download the FTL_FiveM_ReShade_Test artifact and extract it.
+   It contains FTLReShade.addon64 and the separate main.exe bridge.
+   Put FTLReShade.addon64 in the ReShade add-on search folder shown in the
+   ReShade settings (usually the same folder as the ReShade DLL).
+   This REQUIRES a FiveM restart; shader Reload does not load native add-ons.
 5. Put addon.json and main.exe into one ZIP, then add the SHA-256 of that ZIP
    to your approved FollowTheLyrics catalogue entry before installing.
    For a local test, you can also extract both under the FTL data directory:
    addons/fivem-reshade/ with a state.json containing {"enabled": true}.
-6. Start FiveM Legacy and enable "FollowTheLyrics Live (Experimental)".
+6. Start FiveM Legacy. Verify the native add-on is listed in ReShade's
+   Add-ons tab, then enable "FollowTheLyrics Live (Experimental)".
 7. Start FollowTheLyrics, enable the FiveM add-on and choose the FiveM output.
 8. Desktop lyrics disappear only while the ReShade add-on reports readiness.
+   If the shader is visible but FTL says Offline, verify that both the native
+   add-on and the FTL companion add-on are installed and enabled.
 
 The prototype supports basic ASCII glyphs only. Long lines are truncated.
 PerspectiveTilt is a screen-space effect, not a real world-space projection.
