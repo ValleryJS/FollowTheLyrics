@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import urllib.error
 import zipfile
 
 import pytest
@@ -91,6 +92,15 @@ def test_external_game_mod_is_listed_as_download_only():
     client = Catalogue()
     addon = client.parse({"addons": listing(kind="external")})[0]
     assert addon.kind == "external"
+
+
+def test_unpublished_catalogue_is_empty_not_an_error():
+    def missing(*_args, **_kwargs):
+        raise urllib.error.HTTPError(
+            "https://example.org/catalog.json", 404, "Not Found", {}, None
+        )
+
+    assert Catalogue(opener=missing).fetch() == []
 
 
 @pytest.mark.parametrize(

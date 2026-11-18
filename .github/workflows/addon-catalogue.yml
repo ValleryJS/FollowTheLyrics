@@ -1,0 +1,28 @@
+name: Add-on catalogue
+
+on:
+  pull_request:
+    paths:
+      - "addons/catalog.json"
+      - "src/followthelyrics/addons/**"
+      - "tools/validate_addon_catalog.py"
+  push:
+    branches: [main]
+    paths:
+      - "addons/catalog.json"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check catalogue and published downloads
+        env:
+          PYTHONPATH: src
+        run: python tools/validate_addon_catalog.py --check-downloads

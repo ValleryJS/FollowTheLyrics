@@ -6,6 +6,8 @@ The add-on catalogue lives in the main FollowTheLyrics repository. There is no s
 
 When somebody makes an integration, they publish the code and provide a downloadable ZIP. They then open a pull request adding an entry to `addons/catalog.json`.
 
+The creator guide is at [addons/how-to.md](addons/how-to.md). PRs that change the catalogue run an automatic check of the JSON, the ZIP download and its hash. That check doesn't replace reviewing the code.
+
 Before merging it, check that:
 
 - The download works and the ZIP contains what the author says it does.
@@ -38,7 +40,7 @@ An entry looks like this:
       "id": "example-game-integration",
       "name": "Example Game Integration",
       "version": "1.0.0",
-      "description": "Displays lyrics inside the game.",
+      "description": "Companion files for an example game mod.",
       "type": "external",
       "download_url": "https://example.org/releases/example-game-integration.zip",
       "sha256": "PUT_THE_REAL_64_CHARACTER_SHA256_HASH_HERE",

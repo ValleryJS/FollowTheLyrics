@@ -412,6 +412,8 @@ class Panel(QWidget):
         self.page_title.setText(i18n.tr(info[3]))
         self.page_hint.setText(i18n.tr(info[4]))
         page = self.pages[key]
+        if key == "addons":
+            self.addons_view.load_catalogue_once()
         if self.stack.currentWidget() is page:
             return
         self._fade_done()
@@ -1154,7 +1156,8 @@ class Panel(QWidget):
         self.offset_row.hint_label.setText(tip)
 
     def build_addons(self):
-        return [addons_page.AddonsPage(self.app)]
+        self.addons_view = addons_page.AddonsPage(self.app)
+        return [self.addons_view]
 
     def build_general(self):
         cards = []

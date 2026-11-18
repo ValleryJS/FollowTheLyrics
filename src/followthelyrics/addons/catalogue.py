@@ -3,6 +3,7 @@ import json
 import os
 import re
 import tempfile
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -112,8 +113,13 @@ class Catalogue:
         return items
 
     def fetch(self) -> list[CatalogueAddon]:
-        with self._open(self.url) as reply:
-            body = reply.read(MAX_CATALOGUE_BYTES + 1)
+        try:
+            with self._open(self.url) as reply:
+                body = reply.read(MAX_CATALOGUE_BYTES + 1)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return []
+            raise
         if len(body) > MAX_CATALOGUE_BYTES:
             raise CatalogueError("Catalogue is too large")
         try:

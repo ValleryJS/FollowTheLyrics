@@ -2,6 +2,7 @@ import json
 import zipfile
 from types import SimpleNamespace
 
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import QPushButton
 
@@ -88,4 +89,22 @@ def test_catalogue_marks_installed_plugin_updates(tmp_path):
     assert "Update" in {
         button.text() for button in page.findChildren(QPushButton)
     }
+    page.close()
+
+
+def test_catalogue_is_not_contacted_during_page_construction(
+    tmp_path, monkeypatch
+):
+    qt_app = QApplication.instance() or QApplication([])
+    _ = qt_app
+    requests = []
+
+    def fake_fetch(self):
+        requests.append(True)
+        return []
+
+    monkeypatch.setattr(Catalogue, "fetch", fake_fetch)
+    page = AddonsPage(SimpleNamespace(addons=AddonManager(tmp_path)))
+    QTest.qWait(400)
+    assert requests == []
     page.close()

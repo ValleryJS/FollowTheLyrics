@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 from PyQt6.QtCore import QThread
-from PyQt6.QtCore import QTimer
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtWidgets import QFrame
@@ -49,6 +48,7 @@ class AddonsPage(QFrame):
         self.setProperty("role", "card")
         self.app = app
         self.catalogue = Catalogue()
+        self.catalogue_loaded = False
         self.entries: list[CatalogueAddon] = []
         self.task = None
 
@@ -91,7 +91,11 @@ class AddonsPage(QFrame):
         self.installed_layout = QVBoxLayout()
         self.lay.addLayout(self.installed_layout)
         self.render_installed()
-        QTimer.singleShot(250, self.refresh_catalogue)
+
+    def load_catalogue_once(self):
+        if not self.catalogue_loaded:
+            self.catalogue_loaded = True
+            self.refresh_catalogue()
 
     @staticmethod
     def clear_layout(layout):
