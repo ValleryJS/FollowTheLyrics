@@ -262,7 +262,7 @@ class AddonRuntime:
                 )
             except OSError:
                 continue
-            pending = Queue(maxsize=32)
+            pending: Queue[bytes] = Queue(maxsize=32)
             self.processes[addon_id] = process
             self.queues[addon_id] = pending
             thread = threading.Thread(
