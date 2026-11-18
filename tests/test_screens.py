@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRectF
 
 from followthelyrics.config import settings
 from followthelyrics.overlay import screens
@@ -90,3 +91,19 @@ def test_span_option_is_preserved_until_only_one_monitor_remains():
         screens.selection_key([MSI], MSI, screens.SPAN_ALL)
         == screens.key_of([MSI], MSI)
     )
+
+
+def test_spanned_screen_areas_use_overlay_local_coordinates():
+    left = SimpleNamespace(geometry=lambda: QRect(-1920, 150, 1920, 1080))
+    main = SimpleNamespace(geometry=lambda: QRect(0, 0, 2560, 1440))
+    above = SimpleNamespace(geometry=lambda: QRect(400, -900, 1600, 900))
+    areas = screens.spanned_screen_areas([left, main, above])
+    assert areas == [
+        QRectF(0, 1050, 1920, 1080),
+        QRectF(1920, 900, 2560, 1440),
+        QRectF(2320, 0, 1600, 900),
+    ]
+
+
+def test_spanned_screen_areas_omit_no_displays():
+    assert screens.spanned_screen_areas([]) == []

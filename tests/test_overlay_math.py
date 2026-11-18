@@ -1,10 +1,14 @@
 import numpy as np
 import pytest
+from PyQt6.QtCore import QRectF
+from PyQt6.QtWidgets import QApplication
 
+from followthelyrics.config import settings
 from followthelyrics.lyrics import analysis
 from followthelyrics.lyrics import model
 from followthelyrics.overlay import animation
 from followthelyrics.overlay import colors
+from followthelyrics.overlay.window import Overlay
 from followthelyrics.playback import audio
 
 
@@ -14,6 +18,26 @@ def test_easing_bounds():
     assert animation.ease_out(0.0) == 0.0
     assert animation.ease_out(1.0) == pytest.approx(1.0)
     assert animation.lerp(0.0, 10.0, 0.25) == 2.5
+
+
+def test_random_lyrics_never_land_in_gaps_between_spanned_monitors():
+    app = QApplication.instance() or QApplication([])
+    _ = app
+    cfg = dict(settings.DEFAULTS, screen="__all__", mode="edit")
+    overlay = Overlay(cfg, {"bureau": {"zones_interdites": []}}, object())
+    overlay.setGeometry(0, 0, 4480, 2340)
+    areas = [QRectF(0, 1050, 1920, 1080), QRectF(1920, 900, 2560, 1440),
+             QRectF(2320, 0, 1600, 900)]
+    overlay.placement_areas = lambda: areas
+    line = model.Line(0, "Lyrics across the displays")
+    try:
+        for _ in range(50):
+            placed = overlay.place_line(line, [])
+            assert any(area.contains(placed.rect) for area in areas)
+    finally:
+        overlay.timer.stop()
+        overlay.top_timer.stop()
+        overlay.close()
 
 
 def test_held_fx_is_neutral_outside_the_word():

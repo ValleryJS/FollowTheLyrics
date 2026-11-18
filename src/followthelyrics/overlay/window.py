@@ -148,6 +148,13 @@ class Overlay(QWidget):
         self.update_zones()
         self.reset_layout()
 
+    def placement_areas(self):
+        if self.cfg.get("screen") == screens.SPAN_ALL:
+            areas = screens.spanned_screen_areas(QGuiApplication.screens())
+            if areas:
+                return areas
+        return [QRectF(0, 0, self.width(), self.height())]
+
     def chosen_screen(self):
         return screens.pick(
             QGuiApplication.screens(),
@@ -514,7 +521,8 @@ class Overlay(QWidget):
     def place_line(self, line, avoid):
         if self.column_mode():
             return self.column_place(line)
-        width, height = self.width(), self.height()
+        area = self.rng.choice(self.placement_areas())
+        width, height = area.width(), area.height()
         s = self.cfg["scale"]
         rng = self.rng
         margin = 26 * s
@@ -546,7 +554,12 @@ class Overlay(QWidget):
             if bw > width - 2 * margin or room < 0:
                 continue
             y = margin + room * (rng.random() ** 1.6)
-            r = QRectF(rng.uniform(margin, width - margin - bw), y, bw, bh)
+            r = QRectF(
+                area.left() + rng.uniform(margin, width - margin - bw),
+                area.top() + y,
+                bw,
+                bh,
+            )
             padded = r.adjusted(-20 * s, -14 * s, 20 * s, 14 * s)
             score = (
                 sum(effects.area(padded.intersected(z)) for z in self.zones)
@@ -577,7 +590,12 @@ class Overlay(QWidget):
                 break
         if best is None:
             r, mul, maxw = (
-                QRectF(margin, margin, 300 * s, 60 * s),
+                QRectF(
+                    area.left() + margin,
+                    area.top() + margin,
+                    min(300 * s, width - margin),
+                    60 * s,
+                ),
                 1.0,
                 width * 0.3,
             )
@@ -586,9 +604,9 @@ class Overlay(QWidget):
         cx = r.center().x()
         align = (
             "left"
-            if cx < width / 3
+            if cx < area.left() + width / 3
             else "right"
-            if cx > 2 * width / 3
+            if cx > area.left() + 2 * width / 3
             else "center"
         )
         ax = {"left": r.left(), "right": r.right(), "center": cx}[align]
@@ -621,17 +639,20 @@ class Overlay(QWidget):
     def column_band(self):
         if self._band is not None:
             return self._band
-        width, height = self.width(), self.height()
+        area = self.placement_areas()[0]
+        width, height = area.width(), area.height()
         s = self.cfg["scale"]
         m = 36 * s
         lh = QFontMetricsF(self.main_font()).height() * 1.05
         band_h = lh * 3.6
         mw = width * 0.36
         pos = self.cfg.get("position", "left")
-        x = {"left": m, "right": width - m - mw}.get(pos, (width - mw) / 2)
-        best = QRectF(x, m, mw, band_h)
-        y = m
-        while y + band_h <= height * UPPER + lh:
+        x = area.left() + {"left": m, "right": width - m - mw}.get(
+            pos, (width - mw) / 2
+        )
+        best = QRectF(x, area.top() + m, mw, band_h)
+        y = area.top() + m
+        while y + band_h <= area.top() + height * UPPER + lh:
             r = QRectF(x, y, mw, band_h)
             if not any(r.intersects(z) for z in self.zones):
                 best = r
@@ -719,7 +740,8 @@ class Overlay(QWidget):
         }
 
     def flash_place(self, text, in_game):
-        width, height = self.width(), self.height()
+        area = self.rng.choice(self.placement_areas())
+        width, height = area.width(), area.height()
         base = self.main_font()
         probe = QFont(base)
         probe.setPixelSize(100)
@@ -735,7 +757,10 @@ class Overlay(QWidget):
             px = min(height * 0.26, 100 * width * 0.84 / w100)
             w, h = w100 * px / 100, h100 * px / 100
             return font_for(px), QRectF(
-                (width - w) / 2, height * 0.58 - h / 2, w, h
+                area.left() + (width - w) / 2,
+                area.top() + height * 0.58 - h / 2,
+                w,
+                h,
             )
         m = 24 * self.cfg["scale"]
         busy = [e["place"].rect for e in (self.cur, self.prev) if e]
@@ -745,11 +770,14 @@ class Overlay(QWidget):
                 break
             w, h = w100 * px / 100, h100 * px / 100
             xs = sorted(
-                (m + k * (width - 2 * m - w) / 12 for k in range(13)),
-                key=lambda x: abs(x + w / 2 - width / 2),
+                (
+                    area.left() + m + k * (width - 2 * m - w) / 12
+                    for k in range(13)
+                ),
+                key=lambda x: abs(x + w / 2 - area.center().x()),
             )
-            y = m
-            while y + h <= height * UPPER:
+            y = area.top() + m
+            while y + h <= area.top() + height * UPPER:
                 for x in xs:
                     r = QRectF(x, y, w, h)
                     pad = r.adjusted(-12, -8, 12, 8)
@@ -944,6 +972,11 @@ class Overlay(QWidget):
         if self.alpha < 0.003:
             return
         p = QPainter(self)
+        if self.cfg.get("screen") == screens.SPAN_ALL:
+            clip = QRegion()
+            for area in self.placement_areas():
+                clip = clip.united(QRegion(area.toRect()))
+            p.setClipRegion(clip)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
         now = self.clock()

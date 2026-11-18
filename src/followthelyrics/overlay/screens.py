@@ -1,4 +1,5 @@
 from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRectF
 
 MAX_LABEL = 24
 SPAN_ALL = "__all__"
@@ -10,6 +11,15 @@ def spanned_geometry(screen_list):
     for screen in screen_list:
         bounds = bounds.united(screen.geometry())
     return bounds
+
+
+def spanned_screen_areas(screen_list):
+    """Physical screen rectangles relative to the spanned overlay origin."""
+    bounds = spanned_geometry(screen_list)
+    return [
+        QRectF(screen.geometry().translated(-bounds.x(), -bounds.y()))
+        for screen in screen_list
+    ]
 
 
 def _base_key(screen):
