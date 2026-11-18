@@ -29,6 +29,7 @@ from followthelyrics.overlay import window
 from followthelyrics.playback import audio
 from followthelyrics.playback import sites
 from followthelyrics.playback import worker
+from followthelyrics.system import crash_reporting
 from followthelyrics.system import hotkeys
 from followthelyrics.system import install
 from followthelyrics.system import startup
@@ -755,6 +756,7 @@ def main():
     ap.add_argument("--seed", type=int, default=3)
     args, _unknown = ap.parse_known_args()
     logs.setup()
+    crash_reporting.install(os.path.join(logs.LOG_DIR, "crash.log"))
     logger.info("FollowTheLyrics %s", version.current())
 
     desktop = platform_desktop.current()
