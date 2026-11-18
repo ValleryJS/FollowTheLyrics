@@ -1,9 +1,11 @@
 import importlib
 
 from followthelyrics import desktop
+from followthelyrics.system import tls
 
 
 def main():
+    tls.configure_linux_ca_bundle()
     boot = desktop.boot()
     boot.prepare()
     try:
