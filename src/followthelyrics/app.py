@@ -28,10 +28,8 @@ from followthelyrics.overlay import window
 from followthelyrics.playback import audio
 from followthelyrics.playback import sites
 from followthelyrics.playback import worker
-from followthelyrics.system import addons
 from followthelyrics.system import hotkeys
 from followthelyrics.system import install
-from followthelyrics.system import renderers
 from followthelyrics.system import startup
 from followthelyrics.system import updater
 from followthelyrics.ui import panel
@@ -54,10 +52,6 @@ class App:
         self.installation = installation_of(self.desktop, self.startup)
         self.quitting = False
         self.cfg = settings.load_config()
-        self.addon_manager = addons.AddonManager()
-        self.addon_runtime = addons.AddonRuntime(self.addon_manager)
-        self.renderer_gate = renderers.RendererGate()
-        self.renderer_gate.mode = self.cfg.get("output_mode", "desktop")
         i18n.set_language(self.cfg.get("lang", i18n.DEFAULT))
         self.profiles = games.load_profiles()
         self.profiles_mtime = games.profiles_mtime()
@@ -118,10 +112,6 @@ class App:
         self.hotkeys.failed.connect(self.on_hotkeys_failed)
 
         self.panel = panel.Panel(self)
-        self.addon_runtime.start_enabled()
-        self.addon_timer = QTimer()
-        self.addon_timer.timeout.connect(self.publish_addon_position)
-        self.addon_timer.start(200)
         gui = QGuiApplication.instance()
         if isinstance(gui, QGuiApplication):
             gui.screenAdded.connect(self.screens_changed)
@@ -359,49 +349,8 @@ class App:
             self.panel.sync_from_cfg()
             self.show_panel()
 
-    def publish_addon_position(self):
-        for event in self.addon_runtime.drain_events():
-            if event.get("ready"):
-                self.renderer_gate.acknowledge(event["addon_id"])
-        process = self.addon_runtime.processes.get("fivem-reshade")
-        is_running = process is not None and process.poll() is None
-        active = is_running and self.renderer_gate.route_to_external()
-        if self.overlay.external_output_active != active:
-            self.overlay.external_output_active = active
-            self.overlay.poke()
-            if self.panel.isVisible():
-                self.panel.refresh_renderer_status()
-        if self.addon_runtime.processes:
-            self.addon_runtime.publish({
-                "type": "position",
-                "seconds": self.overlay.raw_position(),
-                "playing": bool(self.overlay.playing),
-            })
-
-    def set_output_mode(self, mode):
-        if mode not in ("desktop", "fivem"):
-            return
-        self.renderer_gate.mode = mode
-        self.cfg["output_mode"] = mode
-        settings.save_config(self.cfg)
-        if mode == "desktop":
-            self.overlay.external_output_active = False
-            self.overlay.poke()
-        self.panel.refresh_renderer_status()
-
     def w_track(self, np):
         self.real_track = np
-        self.addon_runtime.publish({
-            "type": "track",
-            "title": np.title if np else "",
-            "artist": np.artist if np else "",
-            "album": np.album if np else "",
-            "duration": np.duration if np else 0,
-            "position": np.position if np else 0,
-            "playing": bool(np and np.playing),
-            "style": self.cfg.get("style", "kinetic"),
-            "color": self.cfg.get("color", "album"),
-        })
         if self.audio:
             self.audio.music_playing = bool(np and np.playing)
         if self.demo:
@@ -412,9 +361,6 @@ class App:
         if np and o.track_key != before:
             if np.key in self.store_lyrics:
                 o.on_lyrics(np.key, self.store_lyrics[np.key])
-                self.addon_runtime.publish(
-                    addons.lyrics_event(self.store_lyrics[np.key])
-                )
             if np.key in self.store_cover:
                 o.on_cover(np.key, self.store_cover[np.key])
 
@@ -446,8 +392,6 @@ class App:
 
     def w_lyrics(self, key, lines):
         self.store_lyrics[key] = lines
-        if self.real_track and key == self.real_track.key:
-            self.addon_runtime.publish(addons.lyrics_event(lines))
         if not self.demo:
             self.overlay.on_lyrics(key, lines)
 
@@ -523,9 +467,6 @@ class App:
 
     def set_cfg(self, key, value):
         self.cfg[key] = value
-        self.addon_runtime.publish(
-            {"type": "settings", "key": key, "value": value}
-        )
         settings.save_config(self.cfg)
         o = self.overlay
         if key in ("scale", "screen"):
@@ -727,8 +668,6 @@ class App:
 
     def cleanup(self):
         self.quitting = True
-        self.addon_timer.stop()
-        self.addon_runtime.stop()
         self.tray.hide()
         self.overlay.remove_foreground_hook()
         if self.audio:

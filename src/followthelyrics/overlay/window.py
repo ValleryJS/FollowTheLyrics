@@ -96,7 +96,6 @@ class Overlay(QWidget):
         self.playing = False
         self.alpha = 0.0
         self.user_hidden = False
-        self.external_output_active = False
         self.toast_text = ""
         self.toast_until = -99.0
         self.lyrics_gate = True
@@ -857,7 +856,6 @@ class Overlay(QWidget):
         since = now - self.track_changed_at
         wanted = (
             not self.user_hidden
-            and not self.external_output_active
             and self.track is not None
             and self.playing
             and (self.state == "ok" or since < 4.0)

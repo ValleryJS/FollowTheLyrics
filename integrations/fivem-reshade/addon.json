@@ -1,8 +1,0 @@
-{
-  "id": "fivem-reshade",
-  "name": "FiveM ReShade",
-  "version": "0.1.0",
-  "author": "CatalystJS",
-  "entrypoint": "main.exe",
-  "permissions": ["lyrics.read", "playback.read"]
-}
