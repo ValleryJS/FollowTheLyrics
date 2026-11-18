@@ -749,6 +749,7 @@ def main():
     desktop.session.set_app_id("FollowTheLyrics.App")
     app = QApplication(sys.argv)
     app.setApplicationName("FollowTheLyrics")
+    app.setFont(widgets.ui_font(13))
     app.setQuitOnLastWindowClosed(False)
     if args.snapshot:
         diagnostics.snapshot(args.snapshot, args.at, args)

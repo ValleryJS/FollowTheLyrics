@@ -1,5 +1,6 @@
 import logging
 import math
+import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -46,6 +47,14 @@ FONTS = (
 )
 _font = {"family": ""}
 
+
+def preferred_font_family(available, platform):
+    families = ("Segoe UI", *FONTS) if platform == "win32" else FONTS
+    for name in families:
+        if name in available:
+            return name
+    return QFont().defaultFamily()
+
 BG = "#08080a"
 CARD = "#17ffffff"
 CARD_BORDER = "#26ffffff"
@@ -84,10 +93,7 @@ def qss(c):
 
 def font_family():
     if not _font["family"]:
-        have = fonts.families()
-        _font["family"] = next(
-            (name for name in FONTS if name in have), QFont().defaultFamily()
-        )
+        _font["family"] = preferred_font_family(fonts.families(), sys.platform)
     return _font["family"]
 
 
@@ -101,6 +107,8 @@ def ui_font(px, weight=QFont.Weight.Normal, family=""):
     f = QFont(family or font_family())
     f.setPixelSize(px)
     f.setWeight(weight)
+    f.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    f.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     return f
 
 

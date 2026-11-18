@@ -20,7 +20,6 @@ from PyQt6.QtGui import QRadialGradient
 from PyQt6.QtWidgets import QButtonGroup
 from PyQt6.QtWidgets import QColorDialog
 from PyQt6.QtWidgets import QFrame
-from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from PyQt6.QtWidgets import QGridLayout
 from PyQt6.QtWidgets import QHBoxLayout
@@ -299,10 +298,6 @@ class Panel(QWidget):
         main.addSpacing(6)
         self.page_title = QLabel()
         self.page_title.setProperty("role", "pagetitle")
-        self._title_glow = QGraphicsDropShadowEffect(self.page_title)
-        self._title_glow.setOffset(0, 0)
-        self._title_glow.setBlurRadius(34)
-        self.page_title.setGraphicsEffect(self._title_glow)
         self.page_hint = QLabel()
         self.page_hint.setProperty("role", "pagehint")
         head = QHBoxLayout()
@@ -1540,7 +1535,6 @@ class Panel(QWidget):
         ink = widgets.UI["ink"].name()
         text, dim = widgets.TEXT, widgets.DIM
         ft = fd = f'"{widgets.font_family()}"'
-        self._title_glow.setColor(widgets.alpha(accent, 150))
         edge = "rgba(255,255,255,0.15)"
         line = "rgba(255,255,255,0.30)"
         self.setStyleSheet(f"""
