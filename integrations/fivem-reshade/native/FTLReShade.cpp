@@ -7,10 +7,8 @@
 
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <mutex>
 #include <thread>
 
 #pragma comment(lib, "ws2_32.lib")
@@ -24,11 +22,11 @@ constexpr size_t kPacketSize = 12 + kCharCount * 4;
 SOCKET g_socket = INVALID_SOCKET;
 std::atomic<bool> g_running{false};
 std::thread g_receiver;
-std::mutex g_mutex;
+SRWLOCK g_mutex = SRWLOCK_INIT;
 std::array<int32_t, kCharCount> g_glyphs{};
 int32_t g_count = 0;
-std::chrono::steady_clock::time_point g_lastPacket{};
-std::chrono::steady_clock::time_point g_lastAck{};
+ULONGLONG g_lastPacket = 0;
+ULONGLONG g_lastAck = 0;
 
 void receive_frames() {
     std::array<uint8_t, kPacketSize> bytes{};
@@ -48,10 +46,11 @@ void receive_frames() {
             continue;
         std::array<int32_t, kCharCount> codes{};
         std::memcpy(codes.data(), bytes.data() + 12, sizeof(codes));
-        std::lock_guard<std::mutex> lock(g_mutex);
+        AcquireSRWLockExclusive(&g_mutex);
         g_glyphs = codes;
         g_count = static_cast<int32_t>(count);
-        g_lastPacket = std::chrono::steady_clock::now();
+        g_lastPacket = GetTickCount64();
+        ReleaseSRWLockExclusive(&g_mutex);
     }
 }
 
@@ -70,19 +69,21 @@ void on_begin_effects(reshade::api::effect_runtime *runtime,
     int32_t length = 0;
     bool fresh = false;
     {
-        std::lock_guard<std::mutex> lock(g_mutex);
-        fresh = std::chrono::steady_clock::now() - g_lastPacket <= std::chrono::seconds(1);
+        AcquireSRWLockShared(&g_mutex);
+        const ULONGLONG now = GetTickCount64();
+        fresh = g_lastPacket != 0 && now >= g_lastPacket && now - g_lastPacket <= 1000;
         if (fresh) {
             snapshot = g_glyphs;
             length = g_count;
         }
+        ReleaseSRWLockShared(&g_mutex);
     }
 
     runtime->set_uniform_value_int(codes, snapshot.data(), snapshot.size());
     runtime->set_uniform_value_int(count, &length, 1);
 
-    const auto now = std::chrono::steady_clock::now();
-    if (fresh && now - g_lastAck >= std::chrono::milliseconds(400) && g_socket != INVALID_SOCKET) {
+    const ULONGLONG now = GetTickCount64();
+    if (fresh && now >= g_lastAck && now - g_lastAck >= 400 && g_socket != INVALID_SOCKET) {
         sockaddr_in ack{};
         ack.sin_family = AF_INET;
         ack.sin_port = htons(kAckPort);
