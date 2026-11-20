@@ -30,6 +30,7 @@ from followthelyrics.playback import audio
 from followthelyrics.playback import sites
 from followthelyrics.playback import worker
 from followthelyrics.system import crash_reporting
+from followthelyrics.system import discord_presence
 from followthelyrics.system import hotkeys
 from followthelyrics.system import install
 from followthelyrics.system import startup
@@ -55,6 +56,9 @@ class App:
         self.installation = installation_of(self.desktop, self.startup)
         self.quitting = False
         self.cfg = settings.load_config()
+        self.discord = discord_presence.DiscordPresence()
+        self.discord.configure(self.cfg.get("discord_presence", False),
+                               self.cfg.get("discord_client_id", ""))
         self.addons = AddonManager(settings.DATA_DIR)
         i18n.set_language(self.cfg.get("lang", i18n.DEFAULT))
         self.profiles = games.load_profiles()
@@ -355,6 +359,12 @@ class App:
 
     def w_track(self, np):
         self.real_track = np
+        self.discord.configure(
+            self.cfg.get("discord_presence", False),
+            self.cfg.get("discord_client_id", ""),
+            {"title": np.title, "artist": np.artist, "playing": np.playing}
+            if np else None,
+        )
         self.addons.emit("on_track", (
             {"title": np.title, "artist": np.artist, "album": np.album,
              "playing": np.playing, "duration": np.duration,
@@ -482,6 +492,16 @@ class App:
         self.cfg[key] = value
         settings.save_config(self.cfg)
         o = self.overlay
+        if key in ("discord_presence", "discord_client_id"):
+            np = self.real_track
+            self.discord.configure(
+                self.cfg.get("discord_presence", False),
+                self.cfg.get("discord_client_id", ""),
+                {"title": np.title, "artist": np.artist, "playing": np.playing}
+                if np else None,
+            )
+        if key == "repeat_effect" and o.lines:
+            o.on_lyrics(o.track_key, list(o.lines))
         if key in ("scale", "screen"):
             o.apply_geometry()
         elif key in (
@@ -680,6 +700,7 @@ class App:
         self.app.quit()
 
     def cleanup(self):
+        self.discord.shutdown()
         self.quitting = True
         self.addons.shutdown()
         self.tray.hide()

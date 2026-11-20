@@ -744,6 +744,22 @@ class Panel(QWidget):
             self.opt["word_shake"],
             i18n.tr("Fait trembler les mots pendant les notes tenues."),
         )
+        self.opt["lyric_depth"] = widgets.Toggle()
+        glow.add_row("Lyric depth", self.opt["lyric_depth"],
+                     "Add a soft layered shadow behind the words.")
+        self.opt["lyric_outline"] = widgets.Toggle()
+        glow.add_row("Text outline", self.opt["lyric_outline"],
+                     "Draw a solid outline around lyrics.")
+        self.outline_width = QSlider(Qt.Orientation.Horizontal)
+        self.outline_width.setRange(1, 8)
+        self.outline_width.setFixedWidth(180)
+        self.outline_width.valueChanged.connect(
+            lambda n: self.set("outline_width", n / 2)
+        )
+        glow.add_row("Outline width", self.outline_width)
+        self.outline_color = button("Outline colour", "secondary")
+        self.outline_color.clicked.connect(self.choose_outline_color)
+        glow.add_row("Outline colour", self.outline_color)
 
         motion = Card(i18n.tr("Animation"))
         self.style_picker = widgets.Segmented(translated(settings.STYLES))
@@ -783,6 +799,15 @@ class Panel(QWidget):
                 "perspective."
             ),
         )
+        self.opt["repeat_effect"] = widgets.Toggle()
+        motion.add_row("Repeated chorus effects", self.opt["repeat_effect"],
+                       "Use the same highlighted style for repeated chorus lines.")
+        self.opt["instrumental_visualizer"] = widgets.Toggle()
+        motion.add_row("Instrumental visualizer", self.opt["instrumental_visualizer"],
+                       "Show a small beat-reactive waveform between lyrics.")
+        self.opt["song_progress"] = widgets.Toggle()
+        motion.add_row("Song progress", self.opt["song_progress"],
+                       "Show a thin progress bar while music is playing.")
 
         fonts = Card(i18n.tr("Police"))
         self.font_search = QLineEdit()
@@ -1161,6 +1186,23 @@ class Panel(QWidget):
 
     def build_general(self):
         cards = []
+        discord = Card("Discord Rich Presence")
+        self.discord_presence = widgets.Toggle()
+        self.discord_presence.setChecked(bool(self.app.cfg.get("discord_presence", False)))
+        self.discord_presence.toggled.connect(
+            lambda enabled: self.set("discord_presence", bool(enabled))
+        )
+        discord.add_row("Share current track", self.discord_presence,
+                        "Off by default. Discord must be running.")
+        self.discord_client_id = QLineEdit()
+        self.discord_client_id.setPlaceholderText("Discord application ID")
+        self.discord_client_id.setText(str(self.app.cfg.get("discord_client_id", "")))
+        self.discord_client_id.editingFinished.connect(
+            lambda: self.set("discord_client_id", self.discord_client_id.text().strip())
+        )
+        discord.add_row("Application ID", self.discord_client_id,
+                        "Create an application in the Discord Developer Portal and enter its ID.")
+        cards.append(discord)
         appearance = Card("Startup")
         self.startup_animation = widgets.Toggle()
         self.startup_animation.setChecked(bool(self.app.cfg.get("startup_animation", True)))
@@ -1362,6 +1404,15 @@ class Panel(QWidget):
             self.set("custom_color", chosen.name().upper())
             self.set("color", "custom")
 
+    def choose_outline_color(self):
+        chosen = QColorDialog.getColor(
+            QColor(self.app.cfg.get("outline_color", "#000000")),
+            self, "Outline colour",
+            QColorDialog.ColorDialogOption.DontUseNativeDialog,
+        )
+        if chosen.isValid():
+            self.set("outline_color", chosen.name().upper())
+
     def set(self, key, value):
         if self._building:
             return
@@ -1408,6 +1459,9 @@ class Panel(QWidget):
             self.demo.setChecked(self.app.demo)
             self.autostart.setChecked(self.app.startup.enabled())
             self.startup_animation.setChecked(bool(cfg.get("startup_animation", True)))
+            self.discord_presence.setChecked(bool(cfg.get("discord_presence", False)))
+            self.discord_client_id.setText(str(cfg.get("discord_client_id", "")))
+            self.outline_width.setValue(round(float(cfg.get("outline_width", 2.0)) * 2))
             self.master.setChecked(not self.app.overlay.user_hidden)
             self.master_state.setText(
                 i18n.tr("Affichées")

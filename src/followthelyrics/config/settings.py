@@ -126,6 +126,15 @@ DEFAULTS: dict[str, Any] = {
     "text_scaling": False,
     "word_shake": False,
     "startup_animation": True,
+    "lyric_depth": False,
+    "lyric_outline": False,
+    "outline_color": "#000000",
+    "outline_width": 2.0,
+    "instrumental_visualizer": False,
+    "repeat_effect": True,
+    "song_progress": False,
+    "discord_presence": False,
+    "discord_client_id": "",
     "card": True,
     "particles": True,
     "tilt": True,
@@ -183,6 +192,19 @@ def load_config():
         cfg["text_scaling"] = DEFAULTS["text_scaling"]
     if not isinstance(cfg.get("word_shake"), bool):
         cfg["word_shake"] = DEFAULTS["word_shake"]
+    for key in ("lyric_depth", "lyric_outline", "instrumental_visualizer",
+                "repeat_effect", "song_progress", "discord_presence"):
+        if not isinstance(cfg.get(key), bool):
+            cfg[key] = DEFAULTS[key]
+    try:
+        cfg["outline_width"] = min(4.0, max(0.5, float(cfg["outline_width"])))
+    except (TypeError, ValueError):
+        cfg["outline_width"] = DEFAULTS["outline_width"]
+    outline = cfg.get("outline_color")
+    if not isinstance(outline, str) or len(outline) != 7 or outline[0] != "#" or any(c not in "0123456789abcdefABCDEF" for c in outline[1:]):
+        cfg["outline_color"] = DEFAULTS["outline_color"]
+    if not isinstance(cfg.get("discord_client_id"), str):
+        cfg["discord_client_id"] = ""
     if not isinstance(cfg.get("screen"), str):
         cfg["screen"] = ""
     for old in ("theme",):

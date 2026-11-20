@@ -284,6 +284,9 @@ class Overlay(QWidget):
                 lines = [model.Line(0.0, ""), *list(lines)]
             analysis.compute_word_meta(lines)
             analysis.mark_chorus(lines)
+            if not self.cfg.get("repeat_effect", True):
+                for line in lines:
+                    line.chorus = False
             if self.track is not None:
                 parsing.mark_title_lines(
                     lines, self.track.title, self.track.artist
@@ -893,7 +896,7 @@ class Overlay(QWidget):
             not self.user_hidden
             and self.track is not None
             and self.playing
-            and (self.state == "ok" or since < 4.0)
+            and (self.state == "ok" or since < 4.0 or self.cfg.get("song_progress"))
         )
         self.lyrics_gate = wanted or not toast_on
         show = wanted or toast_on
@@ -904,6 +907,8 @@ class Overlay(QWidget):
 
         region = QRegion()
         if self.alpha > 0.003:
+            if self.cfg.get("song_progress") or self._show_instrumental(pos_now):
+                region = region.united(QRegion(self._hud_bounds().toAlignedRect()))
             pad = int(120 * self.cfg["scale"])
             if self.column_mode():
                 b = self.column_band()
@@ -945,6 +950,9 @@ class Overlay(QWidget):
         animating = abs(target - self.alpha) > 0.002 or self.is_animating(
             now, pos_now
         )
+        animating = animating or (wanted and self._show_instrumental(pos_now))
+        if wanted and self.cfg.get("song_progress"):
+            animating = True
         if not dirty.isEmpty() and (
             animating
             or self.was_animating
@@ -1019,7 +1027,48 @@ class Overlay(QWidget):
 
         self.draw_particles(p)
         self.draw_card(p)
+        if self.lyrics_gate and self.track is not None and self.playing and not self.user_hidden:
+            self.draw_music_hud(p, pos)
         p.end()
+
+    def _hud_bounds(self):
+        area = self.placement_areas()[0]
+        return QRectF(area.center().x() - 110, area.bottom() - 88, 220, 72)
+
+    def _show_instrumental(self, pos):
+        if not self.cfg.get("instrumental_visualizer") or self.state != "ok" or not self.lines:
+            return False
+        idx = max(0, self.current_index(pos))
+        line = self.lines[idx]
+        if not line.text.strip():
+            return True
+        next_time = self.times[idx + 1] if idx + 1 < len(self.times) else None
+        end = line.end if line.end is not None else line.time + max(2.0, len(line.text.split()) * 0.4)
+        return next_time is not None and next_time - max(end, pos) > 2.0 and pos > end
+
+    def draw_music_hud(self, p, pos):
+        bounds = self._hud_bounds()
+        p.save()
+        p.setOpacity(p.opacity() * self.alpha * 0.85)
+        accent = self.colors()[0]
+        if self._show_instrumental(pos):
+            pen = QPen(accent, 2.5)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            p.setPen(pen)
+            phase = self.clock() * 5.0
+            pulse = max(0.15, self.beat_pulse())
+            for i in range(25):
+                height = 4 + (9 + pulse * 16) * abs(math.sin(phase + i * 0.42))
+                x = bounds.center().x() - 72 + i * 6
+                y = bounds.top() + 22
+                p.drawLine(QPointF(x, y - height / 2), QPointF(x, y + height / 2))
+        if self.cfg.get("song_progress"):
+            duration = getattr(self.track, "duration", 0) or 0
+            if duration > 0:
+                bar = QRectF(bounds.left() + 15, bounds.bottom() - 14, bounds.width() - 30, 3)
+                p.fillRect(bar, QColor(255, 255, 255, 65))
+                p.fillRect(QRectF(bar.left(), bar.top(), bar.width() * animation.clamp(pos / duration), bar.height()), accent)
+        p.restore()
 
     def sung_end(self, idx):
         line = self.lines[idx]
@@ -1312,6 +1361,14 @@ class Overlay(QWidget):
             )
         if path is None:
             path = self.text_path(text, font).translated(x, base_y)
+        if self.cfg.get("lyric_depth"):
+            p.fillPath(path.translated(3, 5), QColor(0, 0, 0, 115))
+            p.fillPath(path.translated(1.5, 2.5), QColor(0, 0, 0, 100))
+        if self.cfg.get("lyric_outline"):
+            pen = QPen(QColor(self.cfg.get("outline_color", "#000000")),
+                       float(self.cfg.get("outline_width", 2.0)))
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            p.strokePath(path, pen)
         p.fillPath(path, brush)
 
     def text_path(self, text, font):
