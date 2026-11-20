@@ -35,6 +35,7 @@ from followthelyrics.system import install
 from followthelyrics.system import startup
 from followthelyrics.system import updater
 from followthelyrics.ui import panel
+from followthelyrics.ui import splash
 from followthelyrics.ui import welcome
 from followthelyrics.ui import widgets
 from followthelyrics.ui import zone_editor
@@ -795,6 +796,11 @@ def main():
                 logger.debug("main failed", exc_info=True)
         if not install.TEST_INSTANCE:
             desktop_startup.refresh()
+    intro = None
+    if not args.minimized and settings.load_config().get("startup_animation", True):
+        intro = splash.StartupSplash()
+        intro.start()
+        app.processEvents()
     a = App(
         app,
         demo=args.demo,
@@ -802,6 +808,8 @@ def main():
         updated=args.updated,
         desktop=desktop,
     )
+    if intro is not None:
+        intro.finish()
     if server is not None:
         server.newConnection.connect(a.quit)
     code = app.exec()

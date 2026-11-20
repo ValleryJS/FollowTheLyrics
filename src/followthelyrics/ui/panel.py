@@ -1161,6 +1161,18 @@ class Panel(QWidget):
 
     def build_general(self):
         cards = []
+        appearance = Card("Startup")
+        self.startup_animation = widgets.Toggle()
+        self.startup_animation.setChecked(bool(self.app.cfg.get("startup_animation", True)))
+        self.startup_animation.toggled.connect(
+            lambda value: self.set("startup_animation", bool(value))
+        )
+        appearance.add_row(
+            "Startup animation",
+            self.startup_animation,
+            "Show the FollowTheLyrics logo when the app opens.",
+        )
+        cards.append(appearance)
         self.autostart = widgets.Toggle()
         self.autostart.setChecked(self.app.startup.enabled())
         self.autostart.toggled.connect(
@@ -1395,6 +1407,7 @@ class Panel(QWidget):
                 t.setChecked(bool(cfg.get(k, settings.DEFAULTS.get(k, True))))
             self.demo.setChecked(self.app.demo)
             self.autostart.setChecked(self.app.startup.enabled())
+            self.startup_animation.setChecked(bool(cfg.get("startup_animation", True)))
             self.master.setChecked(not self.app.overlay.user_hidden)
             self.master_state.setText(
                 i18n.tr("Affichées")
