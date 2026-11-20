@@ -21,7 +21,15 @@ def activity(track):
         return None
     title = str(track.get("title") or "Music")[:128]
     artist = str(track.get("artist") or "Unknown artist")[:128]
-    return {"details": title, "state": artist, "instance": False}
+    return {
+        "details": title,
+        "state": artist,
+        "instance": False,
+        "buttons": [{
+            "label": "Download FTL-Cat's Edition",
+            "url": "https://github.com/ValleryJS/FollowTheLyrics/releases/latest",
+        }],
+    }
 
 
 class DiscordIPC:
