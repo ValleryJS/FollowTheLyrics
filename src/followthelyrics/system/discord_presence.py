@@ -8,6 +8,7 @@ import threading
 import uuid
 
 logger = logging.getLogger(__name__)
+MAX_FRAME = 1_048_576
 
 
 def frame(opcode, payload):
@@ -20,41 +21,100 @@ def activity(track):
         return None
     title = str(track.get("title") or "Music")[:128]
     artist = str(track.get("artist") or "Unknown artist")[:128]
-    return {"type": 2, "details": title, "state": artist,
-            "instance": False}
+    return {"details": title, "state": artist, "instance": False}
 
 
-def send(client_id, track):
-    if not client_id.isdigit() or not 16 <= len(client_id) <= 22:
-        return
-    payload = {"cmd": "SET_ACTIVITY", "args": {"pid": os.getpid(),
-               "activity": activity(track)}, "nonce": str(uuid.uuid4())}
+class DiscordIPC:
+    def __init__(self, stream, is_socket=False):
+        self.stream = stream
+        self.is_socket = is_socket
+
+    def _read_exact(self, size):
+        chunks = []
+        while size:
+            part = self.stream.recv(size) if self.is_socket else self.stream.read(size)
+            if not part:
+                raise ConnectionError("Discord closed the connection")
+            chunks.append(part)
+            size -= len(part)
+        return b"".join(chunks)
+
+    def receive(self):
+        opcode, size = struct.unpack("<II", self._read_exact(8))
+        if size > MAX_FRAME:
+            raise ConnectionError("Invalid Discord response size")
+        payload = json.loads(self._read_exact(size))
+        if opcode == 2 or payload.get("evt") == "ERROR":
+            raise ConnectionError(f"Discord RPC rejected request: {payload}")
+        if opcode != 1:
+            raise ConnectionError(f"Unexpected Discord opcode: {opcode}")
+        return payload
+
+    def write(self, opcode, payload):
+        data = frame(opcode, payload)
+        if self.is_socket:
+            self.stream.sendall(data)
+        else:
+            self.stream.write(data)
+
+    def handshake(self, client_id):
+        self.write(0, {"v": 1, "client_id": client_id})
+        response = self.receive()
+        if response.get("evt") != "READY":
+            raise ConnectionError("Discord did not acknowledge the handshake")
+
+    def update(self, track):
+        nonce = str(uuid.uuid4())
+        self.write(1, {
+            "cmd": "SET_ACTIVITY",
+            "args": {"pid": os.getpid(), "activity": activity(track)},
+            "nonce": nonce,
+        })
+        response = self.receive()
+        if response.get("nonce") != nonce:
+            raise ConnectionError("Discord returned an unexpected response")
+
+    def close(self):
+        self.stream.close()
+
+
+def connect(client_id):
     if sys.platform == "win32":
         for index in range(10):
             try:
-                with open(rf"\\.\pipe\discord-ipc-{index}", "r+b", buffering=0) as pipe:
-                    pipe.write(frame(0, {"v": 1, "client_id": client_id}))
-                    pipe.write(frame(1, payload))
-                return
+                stream = open(rf"\\.\pipe\discord-ipc-{index}", "r+b", buffering=0)
+                connection = DiscordIPC(stream)
+                try:
+                    connection.handshake(client_id)
+                    return connection
+                except Exception:
+                    connection.close()
+                    raise
             except OSError:
                 continue
-        return
-    bases = [os.environ.get("XDG_RUNTIME_DIR", ""),
-             os.environ.get("TMPDIR", ""), "/tmp"]
+        raise ConnectionError("Discord desktop client not found")
+    bases = [os.environ.get(key, "") for key in
+             ("XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP")]
+    bases.append("/tmp")
     for base in bases:
         if not base:
             continue
         for index in range(10):
             path = os.path.join(base, f"discord-ipc-{index}")
+            stream = socket.socket(socket.AF_UNIX)
+            stream.settimeout(2)
             try:
-                with socket.socket(socket.AF_UNIX) as connection:
-                    connection.settimeout(1.5)
-                    connection.connect(path)
-                    connection.sendall(frame(0, {"v": 1, "client_id": client_id}))
-                    connection.sendall(frame(1, payload))
-                return
+                stream.connect(path)
+                connection = DiscordIPC(stream, is_socket=True)
+                connection.handshake(client_id)
+                return connection
             except OSError:
+                stream.close()
                 continue
+            except Exception:
+                stream.close()
+                raise
+    raise ConnectionError("Discord desktop client not found")
 
 
 class DiscordPresence:
@@ -64,9 +124,9 @@ class DiscordPresence:
         self._changed = threading.Event()
         self._client_id = ""
         self._track = None
-        self._last_id = ""
-        self._thread = threading.Thread(target=self._run, daemon=True,
-                                        name="ftl-discord-presence")
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="ftl-discord-presence"
+        )
         self._thread.start()
 
     def configure(self, enabled, client_id, track=None):
@@ -79,20 +139,36 @@ class DiscordPresence:
         self._changed.set()
 
     def _run(self):
+        connection = None
+        connected_id = ""
         while not self._stop.is_set():
             with self._lock:
                 client_id = self._client_id
                 track = self._track
-            try:
-                if self._last_id and self._last_id != client_id:
-                    send(self._last_id, None)
-                if client_id:
-                    send(client_id, track)
-                self._last_id = client_id
-            except Exception:
-                logger.debug("Discord presence update failed", exc_info=True)
-            self._changed.wait(15)
+            if client_id != connected_id and connection:
+                connection.close()
+                connection = None
+                connected_id = ""
+            if client_id and not (client_id.isdigit() and 16 <= len(client_id) <= 22):
+                logger.warning("Discord Application ID is invalid")
+                client_id = ""
+            if client_id:
+                try:
+                    if connection is None:
+                        connection = connect(client_id)
+                        connected_id = client_id
+                        logger.info("Discord Rich Presence connected")
+                    connection.update(track)
+                except (OSError, ConnectionError, ValueError) as exc:
+                    logger.warning("Discord Rich Presence: %s", exc)
+                    if connection:
+                        connection.close()
+                        connection = None
+                        connected_id = ""
+            self._changed.wait(15 if connection else 5)
             self._changed.clear()
+        if connection:
+            connection.close()
 
     def shutdown(self):
         self._stop.set()
