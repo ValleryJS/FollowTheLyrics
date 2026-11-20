@@ -22,7 +22,7 @@ This isn't an exhaustive changelog. I'm still working on the fork, so features m
 
 ## Downloads
 
-You can find my builds on the [Cat's Edition releases page](https://github.com/ValleryJS/FollowTheLyrics-CE/releases).
+You can find my builds on the [Cat's Edition releases page](https://github.com/ValleryJS/FollowTheLyrics/releases).
 
 If you'd rather use the official application, download it from [War3l's repository](https://github.com/War3l/FollowTheLyrics).
 
