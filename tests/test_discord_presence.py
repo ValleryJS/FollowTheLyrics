@@ -24,7 +24,7 @@ def test_discord_presence_only_shares_playing_tracks():
         "instance": False,
         "buttons": [{
             "label": "Download FTL-Cat's Edition",
-            "url": "https://github.com/ValleryJS/FollowTheLyrics/releases/latest",
+            "url": "https://github.com/ValleryJS/FollowTheLyrics-CE/releases/latest",
         }],
     }
 

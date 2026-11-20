@@ -1,6 +1,6 @@
 import os
 
-REPO = "ValleryJS/FollowTheLyrics"
+REPO = "ValleryJS/FollowTheLyrics-CE"
 VERSION_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "VERSION"
 )
