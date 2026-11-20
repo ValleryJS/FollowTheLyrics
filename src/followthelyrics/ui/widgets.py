@@ -2,6 +2,7 @@ import logging
 import math
 import sys
 import time
+from importlib.resources import files
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QEasingCurve
@@ -200,6 +201,14 @@ def draw_logo_glow(p, rect, color=LOGO_COLOR):
 
 
 def icon_pixmap(size=64):
+    source = QPixmap(str(files("followthelyrics").joinpath("assets", "cat_edition.png")))
+    if not source.isNull():
+        return source.scaled(
+            size,
+            size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
     pm = QPixmap(size, size)
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)

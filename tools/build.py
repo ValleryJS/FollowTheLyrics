@@ -208,6 +208,9 @@ def main():
         "--add-data",
         f"{os.path.join(PACKAGE, 'VERSION')}{os.pathsep}followthelyrics",
         "--add-data",
+        f"{os.path.join(PACKAGE, 'assets', '*.png')}{os.pathsep}"
+        f"{os.path.join('followthelyrics', 'assets')}",
+        "--add-data",
         f"{os.path.join(PACKAGE, 'fonts', '*.otf')}{os.pathsep}"
         f"{os.path.join('followthelyrics', 'fonts')}",
         "--add-data",
